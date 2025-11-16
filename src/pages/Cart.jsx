@@ -213,8 +213,10 @@ export default function Cart() {
       return;
     }
 
-    // Prepare order data
+    // Generate order data
+    const orderNumber = Math.random().toString(36).substr(2, 9).toUpperCase();
     const orderData = {
+      orderNumber,
       items: cartItems,
       subtotal: calculateSubtotal(),
       discount: discount,
@@ -224,48 +226,230 @@ export default function Cart() {
       deliveryOption: deliveryOption,
       deliveryTime: deliveryOption === "later" ? selectedTime : "ASAP",
       couponCode: isCouponApplied ? couponCode : null,
+      status: "preparing",
+      estimatedDelivery:
+        deliveryOption === "now" ? "25-35 minutes" : selectedTime,
+      customerInfo: {
+        name: "Mohamed Ahmed",
+        phone: "+20 123 456 7890",
+        address: "123 Main Street, Cairo, Egypt",
+      },
+      createdAt: new Date().toISOString(),
     };
 
-    // Here you would typically send the order to your backend
-    console.log("Order Data:", orderData);
+    // Save order to localStorage for tracking
+    localStorage.setItem("currentOrder", JSON.stringify(orderData));
 
+    // Enhanced Checkout Modal with better design
     Swal.fire({
-      title: "Proceed to Checkout?",
+      title:
+        '<h2 class="text-2xl font-bold text-gray-800">Order Confirmation</h2>',
       html: `
-        <div class="text-left">
-          <p><strong>Items:</strong> ${cartItems.length}</p>
-          <p><strong>Subtotal:</strong> EGP ${calculateSubtotal().toFixed(
-            2
-          )}</p>
-          ${
-            discount > 0
-              ? `<p><strong>Discount:</strong> ${discount}% (-EGP ${calculateDiscountAmount().toFixed(
+        <div class="text-left max-h-96 overflow-y-auto">
+          <!-- Order Summary -->
+          <div class="bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] rounded-xl p-4 mb-4 border border-[#FDB913]/30">
+            <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2">
+              <svg class="w-5 h-5 text-[#E41E26]" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+              </svg>
+              Order Summary
+            </h3>
+            
+            <!-- Items List -->
+            <div class="space-y-3 mb-4">
+              ${cartItems
+                .map(
+                  (item) => `
+                <div class="flex items-center justify-between bg-white/80 rounded-lg p-3">
+                  <div class="flex items-center gap-3">
+                    <img src="${item.image}" alt="${
+                    item.name
+                  }" class="w-12 h-12 rounded-lg object-cover">
+                    <div>
+                      <h4 class="font-semibold text-gray-800 text-sm">${
+                        item.name
+                      }</h4>
+                      <p class="text-xs text-gray-600">Qty: ${
+                        item.quantity
+                      } × EGP ${item.price.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  <span class="font-bold text-[#E41E26]">EGP ${(
+                    item.price * item.quantity
+                  ).toFixed(2)}</span>
+                </div>
+              `
+                )
+                .join("")}
+            </div>
+
+            <!-- Price Breakdown -->
+            <div class="space-y-2 border-t pt-3">
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Subtotal:</span>
+                <span class="font-semibold">EGP ${calculateSubtotal().toFixed(
                   2
-                )})</p>`
-              : ""
-          }
-          <p><strong>Delivery Fee:</strong> EGP ${deliveryFee.toFixed(2)}</p>
-          <p><strong>Total:</strong> EGP ${calculateTotal().toFixed(2)}</p>
-          <p><strong>Delivery:</strong> ${
-            deliveryOption === "now" ? "ASAP" : selectedTime
-          }</p>
+                )}</span>
+              </div>
+              ${
+                discount > 0
+                  ? `
+                <div class="flex justify-between text-sm">
+                  <span class="text-green-600">Discount (${discount}%):</span>
+                  <span class="font-semibold text-green-600">-EGP ${calculateDiscountAmount().toFixed(
+                    2
+                  )}</span>
+                </div>
+              `
+                  : ""
+              }
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Delivery Fee:</span>
+                <span class="font-semibold">EGP ${deliveryFee.toFixed(2)}</span>
+              </div>
+              <div class="flex justify-between text-base font-bold border-t pt-2">
+                <span class="text-gray-800">Total:</span>
+                <span class="text-[#E41E26]">EGP ${calculateTotal().toFixed(
+                  2
+                )}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Delivery Information -->
+          <div class="bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] rounded-xl p-4 mb-4 border border-[#FDB913]/30">
+            <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2">
+              <svg class="w-5 h-5 text-[#E41E26]" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+              </svg>
+              Delivery Information
+            </h3>
+            <div class="space-y-2">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-[#E41E26] rounded-full flex items-center justify-center">
+                  <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">Customer Name</p>
+                  <p class="font-semibold text-sm">Mohamed Ahmed</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-[#E41E26] rounded-full flex items-center justify-center">
+                  <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.568 17.568 0 0 0 4.168 6.608 17.569 17.569 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.678.678 0 0 0-.58-.122l-2.19.547a1.745 1.745 0 0 1-1.657-.459L5.482 8.062a1.745 1.745 0 0 1-.46-1.657l.548-2.19a.678.678 0 0 0-.122-.58L3.654 1.328zM1.884.511a1.745 1.745 0 0 1 2.612.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">Phone Number</p>
+                  <p class="font-semibold text-sm">+20 123 456 7890</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-[#E41E26] rounded-full flex items-center justify-center">
+                  <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">Delivery Address</p>
+                  <p class="font-semibold text-sm">123 Main Street, Cairo, Egypt</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-[#E41E26] rounded-full flex items-center justify-center">
+                  <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">Delivery Time</p>
+                  <p class="font-semibold text-sm">${
+                    deliveryOption === "now"
+                      ? "ASAP (25-35 mins)"
+                      : selectedTime
+                  }</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Method -->
+          <div class="bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] rounded-xl p-4 border border-[#FDB913]/30">
+            <h3 class="font-bold text-lg text-gray-800 mb-3 flex items-center gap-2">
+              <svg class="w-5 h-5 text-[#E41E26]" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7z"/>
+                <path d="M2 10a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1z"/>
+              </svg>
+              Payment Method
+            </h3>
+            <div class="flex items-center gap-3 bg-white/80 rounded-lg p-3">
+              <div class="w-10 h-6 bg-[#E41E26] rounded flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7z"/>
+                  <path d="M2 10a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-semibold text-sm">Cash on Delivery</p>
+                <p class="text-xs text-gray-600">Pay when you receive your order</p>
+              </div>
+            </div>
+          </div>
         </div>
       `,
-      icon: "question",
+      showCloseButton: true,
       showCancelButton: true,
+      confirmButtonText: "Confirm Order",
+      cancelButtonText: "Review Order",
       confirmButtonColor: "#E41E26",
       cancelButtonColor: "#6B7280",
-      confirmButtonText: "Yes, Checkout!",
-      cancelButtonText: "Review Order",
+      padding: "2rem",
+      width: "800px",
+      customClass: {
+        popup: "rounded-3xl shadow-2xl",
+        closeButton: "text-gray-400 hover:text-[#E41E26] text-xl",
+        confirmButton: "px-8 py-3 rounded-xl font-bold text-lg",
+        cancelButton: "px-8 py-3 rounded-xl font-bold text-lg border-2",
+      },
+      reverseButtons: true,
     }).then((result) => {
       if (result.isConfirmed) {
+        // Show success animation
         Swal.fire({
-          title: "Order Placed!",
-          text: "Your order has been placed successfully!",
-          icon: "success",
+          title:
+            '<div class="flex flex-col items-center">' +
+            '<div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mb-4">' +
+            '<svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 16 16">' +
+            '<path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>' +
+            "</svg>" +
+            "</div>" +
+            '<h2 class="text-2xl font-bold text-gray-800">Order Confirmed!</h2>' +
+            "</div>",
+          html: `
+            <div class="text-center">
+              <p class="text-lg text-gray-600 mb-4">Your order has been placed successfully!</p>
+              <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                <p class="font-semibold text-green-800">Order #${orderNumber}</p>
+                <p class="text-sm text-green-600 mt-1">Estimated delivery: ${
+                  deliveryOption === "now" ? "25-35 minutes" : selectedTime
+                }</p>
+              </div>
+            </div>
+          `,
+          icon: null,
+          confirmButtonText: "Track My Order",
           confirmButtonColor: "#E41E26",
+          customClass: {
+            popup: "rounded-3xl shadow-2xl",
+            confirmButton: "px-8 py-3 rounded-xl font-bold text-lg",
+          },
         }).then(() => {
-          navigate("/");
+          // Navigate to order tracking page
+          navigate("/order-tracking", { state: { orderNumber } });
         });
       }
     });

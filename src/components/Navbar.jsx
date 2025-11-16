@@ -8,6 +8,7 @@ import {
   FaTrash,
   FaStar,
   FaShoppingCart,
+  FaClipboardList,
 } from "react-icons/fa";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -101,6 +102,11 @@ const Navbar = () => {
     navigate("/reviews");
   };
 
+  const handleOrdersClick = () => {
+    setIsDropdownOpen(false);
+    navigate("/my-orders");
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -177,6 +183,24 @@ const Navbar = () => {
               </Link>
             </motion.li>
           ))}
+
+          {/* My Orders Link - Only show when logged in */}
+          {isLoggedIn && (
+            <motion.li whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link
+                to="/my-orders"
+                className={`flex items-center gap-2 font-medium transition-all duration-200 
+                hover:text-[#E41E26] ${
+                  location.pathname === "/my-orders"
+                    ? "text-[#E41E26]"
+                    : "text-gray-700"
+                }`}
+              >
+                <FaClipboardList />
+                My Orders
+              </Link>
+            </motion.li>
+          )}
         </ul>
 
         {/* Auth Section */}
@@ -235,7 +259,7 @@ const Navbar = () => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className="absolute top-full right-0 mt-2 w-64 bg-white/95 backdrop-blur-xl shadow-2xl rounded-2xl border border-[#E41E26]/20 overflow-hidden z-50"
+                className="absolute top-full right-0 mt-2 w-72 bg-white/95 backdrop-blur-xl shadow-2xl rounded-2xl border border-[#E41E26]/20 overflow-hidden z-50"
               >
                 {isLoggedIn ? (
                   <div className="p-2">
@@ -259,6 +283,19 @@ const Navbar = () => {
                       >
                         <FaUser className="text-[#E41E26]" />
                         <span>My Profile</span>
+                      </button>
+                    </motion.div>
+
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <button
+                        onClick={handleOrdersClick}
+                        className="w-full text-left flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-[#fff8e7] hover:to-[#ffe5b4] transition-all duration-200 font-medium rounded-lg"
+                      >
+                        <FaClipboardList className="text-[#E41E26]" />
+                        <span>My Orders</span>
                       </button>
                     </motion.div>
 

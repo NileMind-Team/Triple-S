@@ -8,6 +8,8 @@ import Profile from "./pages/Profile";
 import Addresses from "./pages/Addresses";
 import Reviews from "./pages/Reviews";
 import Cart from "./pages/Cart";
+import OrderTracking from "./pages/OrderTracking";
+import MyOrders from "./pages/MyOrders";
 
 function App() {
   const location = useLocation();
@@ -43,6 +45,8 @@ function App() {
           <Route path="/addresses" element={<Addresses />} />
           <Route path="/reviews" element={<Reviews />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/order-tracking" element={<OrderTracking />} />
+          <Route path="/my-orders" element={<MyOrders />} />
         </Routes>
       </main>
     </div>
