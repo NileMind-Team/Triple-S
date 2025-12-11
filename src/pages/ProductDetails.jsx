@@ -335,15 +335,21 @@ const ProductDetails = () => {
   const handleAddToCart = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      toast.warning("يجب تسجيل الدخول لإضافة المنتجات إلى السلة", {
-        position: "top-right",
-        autoClose: 2000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: "light",
-        rtl: true,
+      Swal.fire({
+        title: "تسجيل الدخول مطلوب",
+        text: "يجب تسجيل الدخول لإضافة المنتجات إلى السلة",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#E41E26",
+        cancelButtonColor: "#6B7280",
+        confirmButtonText: "تسجيل الدخول",
+        cancelButtonText: "إنشاء حساب جديد",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/login");
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+          navigate("/register");
+        }
       });
       return;
     }

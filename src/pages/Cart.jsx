@@ -19,6 +19,9 @@ import {
   FaStore,
   FaLocationArrow,
   FaChevronDown,
+  FaMapMarker,
+  FaPlusCircle,
+  FaUser,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 import axiosInstance from "../api/axiosInstance";
@@ -47,12 +50,19 @@ export default function Cart() {
   const [updatingCart, setUpdatingCart] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [userAddresses, setUserAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState(null);
+  const [addressDropdownOpen, setAddressDropdownOpen] = useState(false);
+
   const notesModalRef = React.useRef(null);
   const productDetailsModalRef = React.useRef(null);
+  const addressDropdownRef = React.useRef(null);
 
   useEffect(() => {
     fetchCartItems();
     fetchBranches();
+    fetchUserAddresses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -78,9 +88,17 @@ export default function Cart() {
       ) {
         closeProductDetailsModal();
       }
+
+      if (
+        addressDropdownRef.current &&
+        !addressDropdownRef.current.contains(event.target) &&
+        addressDropdownOpen
+      ) {
+        setAddressDropdownOpen(false);
+      }
     };
 
-    if (showNotesModal || showProductDetailsModal) {
+    if (showNotesModal || showProductDetailsModal || addressDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("touchstart", handleClickOutside);
     }
@@ -89,7 +107,38 @@ export default function Cart() {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
-  }, [showNotesModal, showProductDetailsModal]);
+  }, [showNotesModal, showProductDetailsModal, addressDropdownOpen]);
+
+  const fetchUserAddresses = async () => {
+    try {
+      setLoadingAddresses(true);
+      const response = await axiosInstance.get("/api/Locations/GetAllForUser");
+
+      if (response.data && Array.isArray(response.data)) {
+        setUserAddresses(response.data);
+
+        const defaultAddress = response.data.find(
+          (addr) => addr.isDefaultLocation
+        );
+        if (defaultAddress) {
+          setSelectedAddress(defaultAddress);
+        } else if (response.data.length > 0) {
+          setSelectedAddress(response.data[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user addresses:", error);
+      if (error.response?.status !== 404) {
+        toast.error("فشل في تحميل العناوين", {
+          position: "top-right",
+          autoClose: 3000,
+          rtl: true,
+        });
+      }
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
 
   const calculateDiscountInMoney = (basePrice, itemOffer) => {
     if (!itemOffer || !itemOffer.isEnabled) return 0;
@@ -242,6 +291,193 @@ export default function Cart() {
   const toArabicNumbers = (num) => {
     const arabicNumbers = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
     return num.toString().replace(/\d/g, (digit) => arabicNumbers[digit]);
+  };
+
+  const formatAddressText = (address) => {
+    if (!address) return "";
+
+    const parts = [];
+    if (address.city?.name) parts.push(address.city.name);
+    if (address.streetName) parts.push(address.streetName);
+    if (address.detailedDescription) parts.push(address.detailedDescription);
+
+    return parts.join("، ");
+  };
+
+  const handleAddressSelect = (address) => {
+    setSelectedAddress(address);
+    setAddressDropdownOpen(false);
+
+    toast.success("تم اختيار العنوان", {
+      position: "top-right",
+      autoClose: 1500,
+      rtl: true,
+    });
+  };
+
+  const renderAddressDropdown = () => {
+    if (loadingAddresses) {
+      return (
+        <div className="mb-4 sm:mb-6">
+          <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-xl h-12"></div>
+        </div>
+      );
+    }
+
+    if (userAddresses.length === 0) {
+      return (
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-200 dark:border-blue-600 mb-4 sm:mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
+              <FaMapMarker className="text-blue-600 dark:text-blue-300" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-blue-800 dark:text-blue-300 text-sm sm:text-base">
+                لا توجد عناوين
+              </h4>
+              <p className="text-blue-600 dark:text-blue-400 text-xs sm:text-sm mb-2">
+                يجب إضافة عنوان للتوصيل أولاً
+              </p>
+              <button
+                onClick={() => navigate("/addresses")}
+                className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold text-sm hover:shadow-lg transition-all flex items-center gap-2"
+              >
+                <FaPlusCircle />
+                إضافة عنوان جديد
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mb-4 sm:mb-6" ref={addressDropdownRef}>
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          اختر عنوان التوصيل
+        </label>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setAddressDropdownOpen(!addressDropdownOpen)}
+            className="w-full flex items-center justify-between border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-black dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#E41E26] focus:border-transparent transition-all duration-200 text-sm sm:text-base cursor-pointer"
+          >
+            <span className="flex items-center gap-2 text-right">
+              {selectedAddress ? (
+                <>
+                  <FaMapMarker className="text-[#E41E26] dark:text-[#FDB913]" />
+                  <span className="text-right">
+                    <span className="block font-semibold">
+                      {selectedAddress.city?.name || "عنوان"}
+                      {selectedAddress.isDefaultLocation && (
+                        <span className="mr-2 text-xs bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
+                          افتراضي
+                        </span>
+                      )}
+                    </span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
+                      {formatAddressText(selectedAddress)}
+                    </span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <FaMapMarker className="text-[#E41E26] dark:text-[#FDB913]" />
+                  اختر عنوان التوصيل
+                </>
+              )}
+            </span>
+            <motion.div
+              animate={{
+                rotate: addressDropdownOpen ? 180 : 0,
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              <FaChevronDown className="text-[#E41E26] dark:text-[#FDB913]" />
+            </motion.div>
+          </button>
+
+          <AnimatePresence>
+            {addressDropdownOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.2 }}
+                className="absolute z-50 mt-2 w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-2xl rounded-xl overflow-hidden max-h-60 overflow-y-auto"
+              >
+                <div className="p-3 border-b border-gray-100 dark:border-gray-600">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
+                      عناويني ({userAddresses.length})
+                    </h4>
+                    <button
+                      onClick={() => {
+                        setAddressDropdownOpen(false);
+                        navigate("/addresses");
+                      }}
+                      className="text-[#E41E26] dark:text-[#FDB913] text-sm font-semibold hover:underline flex items-center gap-1"
+                    >
+                      <FaPlusCircle />
+                      إضافة
+                    </button>
+                  </div>
+                </div>
+
+                {userAddresses.map((address) => (
+                  <div
+                    key={address.id}
+                    onClick={() => handleAddressSelect(address)}
+                    className={`px-4 py-3 hover:bg-gradient-to-r hover:from-[#fff8e7] hover:to-[#ffe5b4] dark:hover:from-gray-600 dark:hover:to-gray-500 cursor-pointer transition-all text-sm sm:text-base border-b border-gray-100 dark:border-gray-600 last:border-b-0 ${
+                      selectedAddress?.id === address.id
+                        ? "bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] dark:from-gray-600 dark:to-gray-500"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`mt-1 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          selectedAddress?.id === address.id
+                            ? "bg-[#E41E26] dark:bg-[#FDB913] border-[#E41E26] dark:border-[#FDB913]"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                      >
+                        {selectedAddress?.id === address.id && (
+                          <FaCheck className="text-white text-xs" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-gray-800 dark:text-white">
+                            {address.city?.name || "عنوان"}
+                          </span>
+                          {address.isDefaultLocation && (
+                            <span className="text-xs bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
+                              افتراضي
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400 text-xs">
+                          {formatAddressText(address)}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+                          {address.phoneNumber && `📞 ${address.phoneNumber}`}
+                          {address.buildingNumber &&
+                            ` | 🏢 مبنى ${address.buildingNumber}`}
+                          {address.floorNumber &&
+                            ` | دور ${address.floorNumber}`}
+                          {address.flatNumber && ` | شقة ${address.flatNumber}`}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    );
   };
 
   const openProductDetailsModal = async (item) => {
@@ -564,6 +800,7 @@ export default function Cart() {
   };
 
   const handleCheckout = async () => {
+    // Case 1: User logged in but cart is empty
     if (cartItems.length === 0) {
       Swal.fire({
         icon: "warning",
@@ -601,6 +838,40 @@ export default function Cart() {
     }
 
     if (deliveryType === "delivery") {
+      // Case 2: User logged in but no addresses
+      if (userAddresses.length === 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "أضف عنوان التوصيل",
+          text: "يجب إضافة عنوان للتوصيل أولاً.",
+          confirmButtonText: "إضافة عنوان",
+          cancelButtonText: "إلغاء",
+          showCancelButton: true,
+          reverseButtons: true,
+          customClass: {
+            popup: "rounded-3xl shadow-2xl dark:bg-gray-800 dark:text-white",
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/addresses");
+          }
+        });
+        return;
+      }
+
+      // Case 3: User logged in with addresses but none selected
+      if (!selectedAddress) {
+        Swal.fire({
+          icon: "warning",
+          title: "اختر عنوان التوصيل",
+          text: "الرجاء اختيار عنوان التوصيل",
+          customClass: {
+            popup: "rounded-3xl shadow-2xl dark:bg-gray-800 dark:text-white",
+          },
+        });
+        return;
+      }
+
       if (!selectedArea) {
         Swal.fire({
           icon: "warning",
@@ -623,6 +894,10 @@ export default function Cart() {
         cartId: cartId,
         branchId: selectedBranch.id,
         deliveryFeeId: deliveryType === "delivery" ? selectedArea.id : 0,
+        locationId:
+          deliveryType === "delivery" && selectedAddress
+            ? selectedAddress.id
+            : 0,
         discount: totalDiscount,
         notes: additionalNotes.trim(),
       };
@@ -1298,6 +1573,8 @@ export default function Cart() {
                 خيارات {deliveryType === "delivery" ? "التوصيل" : "الاستلام"}
               </h2>
 
+              {deliveryType === "delivery" && renderAddressDropdown()}
+
               <div className="mb-4 sm:mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div
@@ -1565,6 +1842,50 @@ export default function Cart() {
                 ملخص الطلب
               </h2>
 
+              {/* User Info */}
+              <div className="mb-4 sm:mb-6">
+                <div className="bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] dark:from-gray-700 dark:to-gray-600 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-[#FDB913]/30 dark:border-gray-600">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-[#E41E26] dark:bg-[#FDB913] rounded-full flex items-center justify-center">
+                      <FaUser className="text-white text-sm" />
+                    </div>
+                    <h4 className="font-bold text-gray-800 dark:text-white text-sm sm:text-base">
+                      معلومات العميل
+                    </h4>
+                  </div>
+                  <div className="text-sm">
+                    {deliveryType === "delivery" && selectedAddress ? (
+                      <div>
+                        <div className="font-medium text-gray-700 dark:text-gray-300">
+                          {selectedAddress.city?.name || "عنوان"}
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                          {formatAddressText(selectedAddress)}
+                        </div>
+                        {selectedAddress.phoneNumber && (
+                          <div className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                            📞 {selectedAddress.phoneNumber}
+                          </div>
+                        )}
+                      </div>
+                    ) : deliveryType === "pickup" ? (
+                      <div className="text-gray-600 dark:text-gray-400">
+                        الاستلام من المطعم
+                      </div>
+                    ) : deliveryType === "delivery" &&
+                      userAddresses.length === 0 ? (
+                      <div className="text-yellow-600 dark:text-yellow-400 text-sm">
+                        يجب إضافة عنوان للتوصيل
+                      </div>
+                    ) : (
+                      <div className="text-yellow-600 dark:text-yellow-400 text-sm">
+                        لم يتم اختيار عنوان التوصيل
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Price Breakdown */}
               <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
                 <div className="flex justify-between items-center">
@@ -1668,12 +1989,16 @@ export default function Cart() {
                 disabled={
                   cartItems.length === 0 ||
                   !selectedBranch ||
-                  (deliveryType === "delivery" && !selectedArea)
+                  (deliveryType === "delivery" && !selectedArea) ||
+                  (deliveryType === "delivery" && userAddresses.length === 0) ||
+                  (deliveryType === "delivery" && !selectedAddress)
                 }
                 className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg transition-all duration-300 flex items-center justify-center gap-2 ${
                   cartItems.length === 0 ||
                   !selectedBranch ||
-                  (deliveryType === "delivery" && !selectedArea)
+                  (deliveryType === "delivery" && !selectedArea) ||
+                  (deliveryType === "delivery" && userAddresses.length === 0) ||
+                  (deliveryType === "delivery" && !selectedAddress)
                     ? "bg-gray-400 cursor-not-allowed text-white"
                     : "bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white hover:shadow-xl"
                 }`}

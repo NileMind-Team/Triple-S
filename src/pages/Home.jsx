@@ -25,7 +25,7 @@ import Swal from "sweetalert2";
 import axiosInstance from "../api/axiosInstance";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import HeroSwipper from "./HeroSwipper"; 
+import HeroSwipper from "./HeroSwipper";
 
 const Home = () => {
   const [products, setProducts] = useState([]);
@@ -308,14 +308,21 @@ const Home = () => {
 
     const token = localStorage.getItem("token");
     if (!token) {
-      toast.warning("يجب تسجيل الدخول لإضافة المنتجات إلى المفضلة", {
-        position: "top-right",
-        autoClose: 2000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: "light",
+      Swal.fire({
+        title: "تسجيل الدخول مطلوب",
+        text: "يجب تسجيل الدخول لإضافة المنتجات إلى المفضلة",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#E41E26",
+        cancelButtonColor: "#6B7280",
+        confirmButtonText: "تسجيل الدخول",
+        cancelButtonText: "إنشاء حساب جديد",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/login");
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+          navigate("/register");
+        }
       });
       return;
     }
@@ -378,14 +385,21 @@ const Home = () => {
 
     const token = localStorage.getItem("token");
     if (!token) {
-      toast.warning("يجب تسجيل الدخول لإضافة المنتجات إلى السلة", {
-        position: "top-right",
-        autoClose: 2000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: "light",
+      Swal.fire({
+        title: "تسجيل الدخول مطلوب",
+        text: "يجب تسجيل الدخول لإضافة المنتجات إلى السلة",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#E41E26",
+        cancelButtonColor: "#6B7280",
+        confirmButtonText: "تسجيل الدخول",
+        cancelButtonText: "إنشاء حساب جديد",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/login");
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+          navigate("/register");
+        }
       });
       return;
     }
