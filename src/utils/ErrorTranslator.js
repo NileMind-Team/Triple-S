@@ -171,4 +171,94 @@ class ErrorTranslator {
   }
 }
 
+export const translateErrorMessage = (errorData) => {
+  if (!errorData || !errorData.errors) return "حدث خطأ غير معروف";
+
+  const translatedErrors = {};
+
+  Object.keys(errorData.errors).forEach((field) => {
+    const errors = errorData.errors[field];
+    translatedErrors[field] = errors.map((error) => {
+      if (field === "FirstName") {
+        if (error.includes("between 3 and 100 characters")) {
+          const entered = error.match(/entered (\d+) characters/)?.[1] || "";
+          return `الاسم الأول يجب أن يكون بين 3 و 100 حرف. أدخلت ${entered} حرف${
+            entered === "1" ? "" : "اً"
+          }.`;
+        }
+        if (error.includes("required")) {
+          return "الاسم الأول مطلوب";
+        }
+      }
+
+      if (field === "LastName") {
+        if (error.includes("between 3 and 100 characters")) {
+          const entered = error.match(/entered (\d+) characters/)?.[1] || "";
+          return `الاسم الأخير يجب أن يكون بين 3 و 100 حرف. أدخلت ${entered} حرف${
+            entered === "1" ? "" : "اً"
+          }.`;
+        }
+        if (error.includes("required")) {
+          return "الاسم الأخير مطلوب";
+        }
+      }
+
+      if (field === "Password") {
+        if (error.includes("at least 8 digits")) {
+          return "كلمة المرور يجب أن تحتوي على الأقل 8 أحرف وأرقام وأن تحتوي على أحرف كبيرة وصغيرة وأحرف غير أبجدية رقمية";
+        }
+        if (error.includes("Lowercase")) {
+          return "كلمة المرور يجب أن تحتوي على حرف صغير على الأقل";
+        }
+        if (error.includes("Uppercase")) {
+          return "كلمة المرور يجب أن تحتوي على حرف كبير على الأقل";
+        }
+        if (error.includes("NonAlphanumeric")) {
+          return "كلمة المرور يجب أن تحتوي على حرف غير أبجدي رقمي على الأقل (مثل @#$%&*)";
+        }
+        if (error.includes("required")) {
+          return "كلمة المرور مطلوبة";
+        }
+      }
+
+      if (field === "PhoneNumber") {
+        if (error.includes("must start with 010, 011, 012, or 015")) {
+          return "رقم الهاتف يجب أن يبدأ بـ 010, 011, 012, أو 015";
+        }
+        if (error.includes("must be 11 digits long")) {
+          return "رقم الهاتف يجب أن يتكون من 11 رقماً";
+        }
+        if (error.includes("Invalid phone number")) {
+          return "رقم الهاتف غير صحيح";
+        }
+        if (error.includes("This phone number is already registered")) {
+          return "رقم الهاتف هذا مسجل بالفعل";
+        }
+        if (error.includes("already exists")) {
+          return "رقم الهاتف هذا مستخدم بالفعل";
+        }
+      }
+
+      if (field === "Email") {
+        if (error.includes("already taken")) {
+          return "البريد الإلكتروني مستخدم بالفعل";
+        }
+        if (error.includes("already exists")) {
+          return "البريد الإلكتروني هذا مستخدم بالفعل";
+        }
+        if (error.includes("Invalid email")) {
+          return "البريد الإلكتروني غير صحيح";
+        }
+        if (error.includes("required")) {
+          return "البريد الإلكتروني مطلوب";
+        }
+      }
+
+      return error;
+    });
+  });
+
+  return translatedErrors;
+};
+
 export default ErrorTranslator;
