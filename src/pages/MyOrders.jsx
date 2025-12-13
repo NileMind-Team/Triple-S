@@ -17,6 +17,7 @@ import {
   FaTimes,
   FaReceipt,
   FaBox,
+  FaTag,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 import axiosInstance from "../api/axiosInstance";
@@ -36,7 +37,16 @@ export default function MyOrders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
   const [loadingOrderDetails, setLoadingOrderDetails] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const BASE_URL = "https://restaurant-template.runasp.net/";
+
+  const calculateFinalTotal = (order) => {
+    const subtotal = order.totalWithoutFee || 0;
+    const deliveryFee = order.deliveryCost || 0;
+    const discount = order.totalDiscount || 0;
+
+    return subtotal + deliveryFee - discount;
+  };
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -45,6 +55,7 @@ export default function MyOrders() {
         if (!token) {
           setIsAdminOrRestaurantOrBranch(false);
           setLoading(false);
+          setIsInitialLoad(false);
           return;
         }
 
@@ -69,6 +80,7 @@ export default function MyOrders() {
         setIsAdminOrRestaurantOrBranch(false);
       } finally {
         setLoading(false);
+        setIsInitialLoad(false);
       }
     };
 
@@ -108,45 +120,39 @@ export default function MyOrders() {
 
   useEffect(() => {
     const fetchOrders = async () => {
+      if (isInitialLoad) {
+        return;
+      }
+
       try {
         setLoading(true);
         const token = localStorage.getItem("token");
 
         if (!token) {
           setOrders([]);
+          setLoading(false);
           return;
         }
 
         let url = "/api/Orders/GetAllForUser";
         let params = {};
 
+        if (filter !== "all") {
+          params.status = filter;
+        }
+
+        if (dateRange.start) {
+          params.startRange = dateRange.start;
+        }
+        if (dateRange.end) {
+          params.endRange = dateRange.end;
+        }
+
         if (isAdminOrRestaurantOrBranch) {
           url = "/api/Orders/GetAll";
 
-          if (filter !== "all") {
-            params.status = filter;
-          }
-
-          if (dateRange.start) {
-            params.startRange = dateRange.start;
-          }
-          if (dateRange.end) {
-            params.endRange = dateRange.end;
-          }
-
           if (selectedUserId) {
             params.userId = selectedUserId;
-          }
-        } else {
-          if (filter !== "all") {
-            params.status = filter;
-          }
-
-          if (dateRange.start) {
-            params.startRange = dateRange.start;
-          }
-          if (dateRange.end) {
-            params.endRange = dateRange.end;
           }
         }
 
@@ -172,29 +178,34 @@ export default function MyOrders() {
       }
     };
 
-    if (!loading) {
-      fetchOrders();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, dateRange, selectedUserId, isAdminOrRestaurantOrBranch]);
+    fetchOrders();
+  }, [
+    filter,
+    dateRange,
+    selectedUserId,
+    isAdminOrRestaurantOrBranch,
+    isInitialLoad,
+  ]);
 
   // Map API status to frontend status
   const mapStatus = (apiStatus) => {
     const statusMap = {
-      Pending: "preparing",
+      Pending: "pending",
+      Confirmed: "confirmed",
       Preparing: "preparing",
-      OnTheWay: "on_the_way",
+      OutForDelivery: "out_for_delivery",
       Delivered: "delivered",
       Cancelled: "cancelled",
     };
-    return statusMap[apiStatus] || "preparing";
+    return statusMap[apiStatus] || "pending";
   };
 
   const getStatusText = (apiStatus) => {
     const textMap = {
       Pending: "Pending",
+      Confirmed: "Confirmed",
       Preparing: "Preparing",
-      OnTheWay: "On The Way",
+      OutForDelivery: "Out for Delivery",
       Delivered: "Delivered",
       Cancelled: "Cancelled",
     };
@@ -206,10 +217,14 @@ export default function MyOrders() {
     switch (mappedStatus) {
       case "delivered":
         return <FaCheckCircle className="text-green-500" />;
+      case "confirmed":
+        return <FaCheckCircle className="text-blue-500" />;
+      case "pending":
+        return <FaClock className="text-yellow-500" />;
       case "preparing":
         return <FaClock className="text-orange-500" />;
-      case "on_the_way":
-        return <FaShoppingBag className="text-blue-500" />;
+      case "out_for_delivery":
+        return <FaShoppingBag className="text-purple-500" />;
       case "cancelled":
         return <FaTimesCircle className="text-red-500" />;
       default:
@@ -222,10 +237,14 @@ export default function MyOrders() {
     switch (mappedStatus) {
       case "delivered":
         return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+      case "confirmed":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
       case "preparing":
         return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
-      case "on_the_way":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+      case "out_for_delivery":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
       case "cancelled":
         return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
       default:
@@ -241,8 +260,9 @@ export default function MyOrders() {
       input: "select",
       inputOptions: {
         Pending: "Pending",
+        Confirmed: "Confirmed",
         Preparing: "Preparing",
-        OnTheWay: "On The Way",
+        OutForDelivery: "Out for Delivery",
         Delivered: "Delivered",
         Cancelled: "Cancelled",
       },
@@ -279,7 +299,7 @@ export default function MyOrders() {
         Swal.fire({
           icon: "success",
           title: "Status Updated!",
-          text: `Order status changed to ${newStatus}`,
+          text: `Order status changed to ${getStatusText(newStatus)}`,
           timer: 2000,
           showConfirmButton: false,
         });
@@ -379,6 +399,34 @@ export default function MyOrders() {
         details = response.data;
       }
 
+      if (details && details.items) {
+        details.items = details.items.map((item) => ({
+          ...item,
+          menuItemImageUrlSnapshotAtOrder:
+            item.menuItemImageUrlSnapshotAtOrder ||
+            (item.menuItem ? item.menuItem.imageUrl : null),
+          menuItemNameSnapshotAtOrder:
+            item.menuItemNameSnapshotAtOrder ||
+            (item.menuItem ? item.menuItem.name : "Unknown Item"),
+          menuItemDescriptionAtOrder:
+            item.menuItemDescriptionAtOrder ||
+            (item.menuItem ? item.menuItem.description : ""),
+          menuItemBasePriceSnapshotAtOrder:
+            item.menuItemBasePriceSnapshotAtOrder > 0
+              ? item.menuItemBasePriceSnapshotAtOrder
+              : item.menuItem
+              ? item.menuItem.basePrice
+              : 0,
+          totalPrice:
+            item.totalPrice < 0 ? Math.abs(item.totalPrice) : item.totalPrice,
+        }));
+      }
+
+      if (details) {
+        const finalTotal = calculateFinalTotal(details);
+        details.finalTotal = finalTotal;
+      }
+
       setOrderDetails(details);
     } catch (error) {
       console.error("Error fetching order details:", error);
@@ -419,7 +467,7 @@ export default function MyOrders() {
     setSelectedUserId("");
   };
 
-  if (loading) {
+  if (loading && isInitialLoad) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-[#fff8e7] to-[#ffe5b4] dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 px-4">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#E41E26]"></div>
@@ -522,8 +570,12 @@ export default function MyOrders() {
                           {[
                             { value: "all", label: "All Status" },
                             { value: "Pending", label: "Pending" },
+                            { value: "Confirmed", label: "Confirmed" },
                             { value: "Preparing", label: "Preparing" },
-                            { value: "OnTheWay", label: "On The Way" },
+                            {
+                              value: "OutForDelivery",
+                              label: "Out for Delivery",
+                            },
                             { value: "Delivered", label: "Delivered" },
                             { value: "Cancelled", label: "Cancelled" },
                           ].map((item) => (
@@ -649,200 +701,209 @@ export default function MyOrders() {
                 )}
               </div>
 
-              {/* Date Range Filter - Only for admin users */}
-              {isAdminOrRestaurantOrBranch && (
-                <div className="space-y-4">
-                  {/* Date Range Filter */}
-                  <div className="flex flex-col sm:flex-row gap-4 items-end">
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Start Date
-                        </label>
-                        <input
-                          type="date"
-                          value={dateRange.start}
-                          onChange={(e) =>
-                            handleDateRangeChange("start", e.target.value)
-                          }
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#E41E26] focus:border-transparent transition-all duration-200 text-sm sm:text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          End Date
-                        </label>
-                        <input
-                          type="date"
-                          value={dateRange.end}
-                          onChange={(e) =>
-                            handleDateRangeChange("end", e.target.value)
-                          }
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#E41E26] focus:border-transparent transition-all duration-200 text-sm sm:text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        />
-                      </div>
+              {/* Date Range Filter */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={dateRange.start}
+                        onChange={(e) =>
+                          handleDateRangeChange("start", e.target.value)
+                        }
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#E41E26] focus:border-transparent transition-all duration-200 text-sm sm:text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
                     </div>
-
-                    {/* Clear Buttons */}
-                    <div className="flex gap-2">
-                      {(dateRange.start ||
-                        dateRange.end ||
-                        selectedUserId ||
-                        filter !== "all") && (
-                        <>
-                          {(dateRange.start || dateRange.end) && (
-                            <button
-                              onClick={clearDateRange}
-                              className="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
-                            >
-                              Clear Dates
-                            </button>
-                          )}
-                          {selectedUserId && (
-                            <button
-                              onClick={clearUserFilter}
-                              className="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
-                            >
-                              Clear User
-                            </button>
-                          )}
-                          <button
-                            onClick={clearAllFilters}
-                            className="px-4 py-3 bg-[#E41E26] text-white rounded-xl hover:bg-[#c91c23] transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
-                          >
-                            Clear All
-                          </button>
-                        </>
-                      )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={dateRange.end}
+                        onChange={(e) =>
+                          handleDateRangeChange("end", e.target.value)
+                        }
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#E41E26] focus:border-transparent transition-all duration-200 text-sm sm:text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
                     </div>
                   </div>
+
+                  {/* Clear Buttons */}
+                  <div className="flex gap-2">
+                    {(dateRange.start ||
+                      dateRange.end ||
+                      (isAdminOrRestaurantOrBranch && selectedUserId) ||
+                      filter !== "all") && (
+                      <>
+                        {(dateRange.start || dateRange.end) && (
+                          <button
+                            onClick={clearDateRange}
+                            className="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
+                          >
+                            Clear Dates
+                          </button>
+                        )}
+                        {isAdminOrRestaurantOrBranch && selectedUserId && (
+                          <button
+                            onClick={clearUserFilter}
+                            className="px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
+                          >
+                            Clear User
+                          </button>
+                        )}
+                        <button
+                          onClick={clearAllFilters}
+                          className="px-4 py-3 bg-[#E41E26] text-white rounded-xl hover:bg-[#c91c23] transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
+                        >
+                          Clear All
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           </motion.div>
 
           {/* Orders List */}
           <div className="space-y-4 sm:space-y-6 relative z-20">
             <AnimatePresence>
-              {orders.map((order, index) => (
-                <motion.div
-                  key={order.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-xl sm:shadow-2xl p-4 sm:p-6 cursor-pointer hover:shadow-2xl transition-all duration-300 dark:bg-gray-800/90"
-                  onClick={() => handleOrderClick(order)}
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    {/* Order Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-3 sm:gap-6 mb-3">
-                        <div className="min-w-0">
-                          <h3 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-200 truncate">
-                            Order #{order.orderNumber}
-                          </h3>
-                          <p className="text-gray-600 dark:text-gray-400 text-sm">
-                            {new Date(order.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                weekday: "long",
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
+              {orders.map((order, index) => {
+                const finalTotal = calculateFinalTotal(order);
+
+                return (
+                  <motion.div
+                    key={order.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-xl sm:shadow-2xl p-4 sm:p-6 cursor-pointer hover:shadow-2xl transition-all duration-300 dark:bg-gray-800/90"
+                    onClick={() => handleOrderClick(order)}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      {/* Order Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-3 sm:gap-6 mb-3">
+                          <div className="min-w-0">
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-200 truncate">
+                              Order #{order.orderNumber}
+                            </h3>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                              {new Date(order.createdAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  weekday: "long",
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </p>
+                            {isAdminOrRestaurantOrBranch && order.userId && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <FaUser className="text-gray-400 dark:text-gray-500 w-3 h-3" />
+                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                  {users.find((u) => u.id === order.userId)
+                                    ?.firstName || "Unknown User"}
+                                </span>
+                              </div>
                             )}
-                          </p>
-                          {isAdminOrRestaurantOrBranch && order.userId && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <FaUser className="text-gray-400 dark:text-gray-500 w-3 h-3" />
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {users.find((u) => u.id === order.userId)
-                                  ?.firstName || "Unknown User"}
-                              </span>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <div
+                              className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(
+                                order.status
+                              )} whitespace-nowrap`}
+                            >
+                              {getStatusText(order.status)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {isAdminOrRestaurantOrBranch && (
+                          <div className="flex gap-2 mb-3">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={(e) =>
+                                handleChangeOrderStatus(order.id, e)
+                              }
+                              className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors"
+                            >
+                              <FaEdit size={10} />
+                              Change Status
+                            </motion.button>
+                            {order.status !== "Cancelled" &&
+                              order.status !== "Rejected" && (
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={(e) =>
+                                    handleCancelOrder(order.id, e)
+                                  }
+                                  className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-600 transition-colors"
+                                >
+                                  <FaTrash size={10} />
+                                  Cancel Order
+                                </motion.button>
+                              )}
+                          </div>
+                        )}
+
+                        {/* Customer/Delivery Info */}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-2">
+                            <FaMapMarkerAlt className="text-[#E41E26] flex-shrink-0 w-3 h-3" />
+                            <span className="truncate">
+                              {order.location?.streetName ||
+                                "Address not specified"}
+                            </span>
+                          </div>
+                          {order.location?.phoneNumber && (
+                            <div className="flex items-center gap-2 sm:ml-4">
+                              <FaPhone className="text-[#E41E26] flex-shrink-0 w-3 h-3" />
+                              <span>{order.location.phoneNumber}</span>
                             </div>
                           )}
                         </div>
-                        <div className="flex-shrink-0">
-                          <div
-                            className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(
-                              order.status
-                            )} whitespace-nowrap`}
-                          >
-                            {getStatusText(order.status)}
-                          </div>
-                        </div>
                       </div>
 
-                      {isAdminOrRestaurantOrBranch && (
-                        <div className="flex gap-2 mb-3">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={(e) =>
-                              handleChangeOrderStatus(order.id, e)
-                            }
-                            className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors"
-                          >
-                            <FaEdit size={10} />
-                            Change Status
-                          </motion.button>
-                          {order.status !== "Cancelled" &&
-                            order.status !== "Rejected" && (
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={(e) => handleCancelOrder(order.id, e)}
-                                className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-600 transition-colors"
-                              >
-                                <FaTrash size={10} />
-                                Cancel Order
-                              </motion.button>
+                      {/* Total and Action */}
+                      <div className="flex flex-row sm:flex-col items-center justify-between sm:items-end lg:items-start gap-3 sm:gap-2 lg:gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-700">
+                        <div className="text-left sm:text-right lg:text-left">
+                          <div className="text-lg sm:text-xl font-bold text-[#E41E26]">
+                            EGP {finalTotal.toFixed(2)}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
+                            Total Amount
+                            {order.totalDiscount > 0 && (
+                              <span className="ml-2 text-green-600 dark:text-green-400 flex items-center gap-1">
+                                <FaTag className="w-3 h-3" />
+                                -EGP {order.totalDiscount.toFixed(2)}
+                              </span>
                             )}
+                          </div>
                         </div>
-                      )}
 
-                      {/* Customer/Delivery Info */}
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <div className="flex items-center gap-2">
-                          <FaMapMarkerAlt className="text-[#E41E26] flex-shrink-0 w-3 h-3" />
-                          <span className="truncate">
-                            {order.location?.streetName ||
-                              "Address not specified"}
+                        <div className="flex items-center gap-2 text-[#E41E26]">
+                          {getStatusIcon(order.status)}
+                          <span className="text-sm font-semibold whitespace-nowrap">
+                            View Details
                           </span>
                         </div>
-                        {order.location?.phoneNumber && (
-                          <div className="flex items-center gap-2 sm:ml-4">
-                            <FaPhone className="text-[#E41E26] flex-shrink-0 w-3 h-3" />
-                            <span>{order.location.phoneNumber}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
-
-                    {/* Total and Action */}
-                    <div className="flex flex-row sm:flex-col items-center justify-between sm:items-end lg:items-start gap-3 sm:gap-2 lg:gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-700">
-                      <div className="text-left sm:text-right lg:text-left">
-                        <div className="text-lg sm:text-xl font-bold text-[#E41E26]">
-                          EGP {order.totalWithFee?.toFixed(2) || "0.00"}
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
-                          Total Amount
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-[#E41E26]">
-                        {getStatusIcon(order.status)}
-                        <span className="text-sm font-semibold whitespace-nowrap">
-                          View Details
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
 
             {orders.length === 0 && !loading && (
@@ -995,73 +1056,101 @@ export default function MyOrders() {
                             Order Items ({orderDetails.items.length})
                           </h3>
                           <div className="space-y-4">
-                            {orderDetails.items.map((item, index) => (
-                              <div
-                                key={index}
-                                className="flex items-start gap-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
-                              >
-                                <div className="flex-shrink-0 w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                                  {item.menuItemImageUrlSnapshotAtOrder ? (
-                                    <img
-                                      src={`${BASE_URL}${item.menuItemImageUrlSnapshotAtOrder}`}
-                                      alt={item.menuItemNameSnapshotAtOrder}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.src =
-                                          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236b7280'%3E%3Cpath d='M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4.86 8.86l-3 3.87L9 13.14 6 17h12l-3.86-5.14z'/%3E%3C/svg%3E";
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-600">
-                                      <FaBox className="text-gray-400 dark:text-gray-500 text-2xl" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                                    {item.menuItemNameSnapshotAtOrder}
-                                  </h4>
-                                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                    Quantity: {item.quantity}
-                                  </p>
-                                  {item.menuItemDescriptionAtOrder && (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
-                                      {item.menuItemDescriptionAtOrder}
-                                    </p>
-                                  )}
-                                  {item.options && item.options.length > 0 && (
-                                    <div className="mt-2">
-                                      <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Options:
-                                      </p>
-                                      <div className="flex flex-wrap gap-1">
-                                        {item.options.map((opt, optIndex) => (
-                                          <span
-                                            key={optIndex}
-                                            className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded"
-                                          >
-                                            {opt.name}
-                                          </span>
-                                        ))}
+                            {orderDetails.items.map((item, index) => {
+                              const imageUrl =
+                                item.menuItemImageUrlSnapshotAtOrder ||
+                                item.menuItem?.imageUrl;
+                              const itemName =
+                                item.menuItemNameSnapshotAtOrder ||
+                                item.menuItem?.name ||
+                                "Unknown Item";
+                              const itemDescription =
+                                item.menuItemDescriptionAtOrder ||
+                                item.menuItem?.description ||
+                                "";
+                              const basePrice =
+                                item.menuItemBasePriceSnapshotAtOrder > 0
+                                  ? item.menuItemBasePriceSnapshotAtOrder
+                                  : item.menuItem?.basePrice || 0;
+                              const totalPrice =
+                                item.totalPrice < 0
+                                  ? Math.abs(item.totalPrice)
+                                  : item.totalPrice;
+
+                              return (
+                                <div
+                                  key={index}
+                                  className="flex items-start gap-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                                >
+                                  <div className="flex-shrink-0 w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+                                    {imageUrl ? (
+                                      <img
+                                        src={`${BASE_URL}${imageUrl}`}
+                                        alt={itemName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.onerror = null;
+                                          e.target.src =
+                                            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236b7280'%3E%3Cpath d='M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4.86 8.86l-3 3.87L9 13.14 6 17h12l-3.86-5.14z'/%3E%3C/svg%3E";
+                                        }}
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-600">
+                                        <FaBox className="text-gray-400 dark:text-gray-500 text-2xl" />
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                      {itemName}
+                                    </h4>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                      Quantity: {item.quantity}
+                                    </p>
+                                    {itemDescription && (
+                                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
+                                        {itemDescription}
+                                      </p>
+                                    )}
+                                    {item.options &&
+                                      item.options.length > 0 && (
+                                        <div className="mt-2">
+                                          <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Options:
+                                          </p>
+                                          <div className="flex flex-wrap gap-1">
+                                            {item.options.map(
+                                              (opt, optIndex) => (
+                                                <span
+                                                  key={optIndex}
+                                                  className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded"
+                                                >
+                                                  {opt.optionNameAtOrder}
+                                                </span>
+                                              )
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <p className="font-bold text-gray-800 dark:text-gray-200">
+                                      EGP {totalPrice?.toFixed(2) || "0.00"}
+                                    </p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                      EGP {basePrice.toFixed(2)} each
+                                    </p>
+                                    {item.totalDiscount > 0 && (
+                                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                        <FaTag className="inline w-2 h-2 mr-1" />
+                                        Discount: EGP{" "}
+                                        {item.totalDiscount.toFixed(2)}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="text-right flex-shrink-0">
-                                  <p className="font-bold text-gray-800 dark:text-gray-200">
-                                    EGP {item.totalPrice?.toFixed(2) || "0.00"}
-                                  </p>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    EGP{" "}
-                                    {(
-                                      item.menuItemBasePriceSnapshotAtOrder || 0
-                                    ).toFixed(2)}{" "}
-                                    each
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -1101,6 +1190,19 @@ export default function MyOrders() {
                               </i>
                             </div>
                           )}
+                          {orderDetails.totalDiscount > 0 && (
+                            <div className="flex justify-between text-green-600 dark:text-green-400">
+                              <span className="flex items-center gap-1">
+                                <FaTag className="w-3 h-3" />
+                                Discount:
+                              </span>
+                              <span className="font-medium">
+                                -EGP{" "}
+                                {orderDetails.totalDiscount?.toFixed(2) ||
+                                  "0.00"}
+                              </span>
+                            </div>
+                          )}
                           <div className="border-t pt-3 mt-3">
                             <div className="flex justify-between font-bold text-lg">
                               <span className="text-gray-800 dark:text-gray-200">
@@ -1108,10 +1210,25 @@ export default function MyOrders() {
                               </span>
                               <span className="text-[#E41E26]">
                                 EGP{" "}
-                                {orderDetails.totalWithFee?.toFixed(2) ||
-                                  "0.00"}
+                                {(
+                                  orderDetails.finalTotal ||
+                                  calculateFinalTotal(orderDetails)
+                                ).toFixed(2)}
                               </span>
                             </div>
+                            {orderDetails.totalWithFee &&
+                              orderDetails.totalDiscount > 0 && (
+                                <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                  <del className="mr-2">
+                                    EGP {orderDetails.totalWithFee?.toFixed(2)}{" "}
+                                    (Before discount)
+                                  </del>
+                                  <span className="text-green-600 dark:text-green-400">
+                                    You saved EGP{" "}
+                                    {orderDetails.totalDiscount?.toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
                           </div>
                         </div>
                       </div>

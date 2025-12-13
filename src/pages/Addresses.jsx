@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaArrowLeft,
@@ -39,6 +39,7 @@ const libraries = ["places"];
 
 export default function Addresses() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [addresses, setAddresses] = useState([]);
   const [cities, setCities] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -101,6 +102,12 @@ export default function Addresses() {
     fetchAddresses();
     fetchCities();
   }, []);
+
+  useEffect(() => {
+    if (location.state?.fromCart) {
+      console.log("Came from cart page");
+    }
+  }, [location.state]);
 
   const fetchAddresses = async () => {
     try {
@@ -322,12 +329,17 @@ export default function Addresses() {
           isDefaultLocation: addr.id === id,
         }))
       );
+
       Swal.fire({
         icon: "success",
         title: "تم تحديث العنوان الافتراضي",
         text: "تم تغيير عنوانك الافتراضي",
-        timer: 2000,
+        timer: 1500,
         showConfirmButton: false,
+      }).then(() => {
+        if (location.state?.fromCart) {
+          navigate("/cart", { state: { fromAddresses: true } });
+        }
       });
     } catch (err) {
       Swal.fire({

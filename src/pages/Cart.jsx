@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaArrowLeft,
@@ -22,6 +22,7 @@ import {
   FaMapMarker,
   FaPlusCircle,
   FaUser,
+  FaExchangeAlt,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 import axiosInstance from "../api/axiosInstance";
@@ -30,6 +31,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 export default function Cart() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cartId, setCartId] = useState(null);
@@ -54,6 +56,9 @@ export default function Cart() {
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [addressDropdownOpen, setAddressDropdownOpen] = useState(false);
+  const [pickupFee, setPickupFee] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [loadingPickupFee, setLoadingPickupFee] = useState(false);
 
   const notesModalRef = React.useRef(null);
   const productDetailsModalRef = React.useRef(null);
@@ -63,6 +68,7 @@ export default function Cart() {
     fetchCartItems();
     fetchBranches();
     fetchUserAddresses();
+    fetchPickupFee();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -108,6 +114,38 @@ export default function Cart() {
       document.removeEventListener("touchstart", handleClickOutside);
     };
   }, [showNotesModal, showProductDetailsModal, addressDropdownOpen]);
+
+  useEffect(() => {
+    if (location.state?.fromAddresses) {
+      fetchUserAddresses();
+      toast.success("تم تحديث العنوان الافتراضي", {
+        position: "top-right",
+        autoClose: 1500,
+        rtl: true,
+      });
+    }
+  }, [location.state]);
+
+  const fetchPickupFee = async () => {
+    try {
+      setLoadingPickupFee(true);
+      const response = await axiosInstance.get("/api/DeliveryFees/GetAll");
+
+      if (response.data && Array.isArray(response.data)) {
+        const pickupFeeItem = response.data.find((item) =>
+          item.areaName.includes("الاستلام من المكان")
+        );
+
+        if (pickupFeeItem) {
+          setPickupFee(pickupFeeItem);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching pickup fee:", error);
+    } finally {
+      setLoadingPickupFee(false);
+    }
+  };
 
   const fetchUserAddresses = async () => {
     try {
@@ -268,10 +306,15 @@ export default function Cart() {
       const response = await axiosInstance.get("/api/DeliveryFees/GetAll", {
         params: { branchId },
       });
-      setDeliveryAreas(response.data);
 
-      if (response.data.length > 0) {
-        setSelectedArea(response.data[0]);
+      const filteredAreas = response.data.filter(
+        (area) => !area.areaName.includes("الاستلام من المكان")
+      );
+
+      setDeliveryAreas(filteredAreas);
+
+      if (filteredAreas.length > 0) {
+        setSelectedArea(filteredAreas[0]);
       }
     } catch (error) {
       console.error("Error fetching delivery areas:", error);
@@ -304,18 +347,11 @@ export default function Cart() {
     return parts.join("، ");
   };
 
-  const handleAddressSelect = (address) => {
-    setSelectedAddress(address);
-    setAddressDropdownOpen(false);
-
-    toast.success("تم اختيار العنوان", {
-      position: "top-right",
-      autoClose: 1500,
-      rtl: true,
-    });
+  const openAddressesPage = () => {
+    navigate("/addresses", { state: { fromCart: true } });
   };
 
-  const renderAddressDropdown = () => {
+  const renderAddressSection = () => {
     if (loadingAddresses) {
       return (
         <div className="mb-4 sm:mb-6">
@@ -352,129 +388,62 @@ export default function Cart() {
     }
 
     return (
-      <div className="mb-4 sm:mb-6" ref={addressDropdownRef}>
-        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          اختر عنوان التوصيل
-        </label>
-        <div className="relative">
+      <div className="mb-4 sm:mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            عنوان التوصيل
+          </label>
           <button
-            type="button"
-            onClick={() => setAddressDropdownOpen(!addressDropdownOpen)}
-            className="w-full flex items-center justify-between border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-black dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#E41E26] focus:border-transparent transition-all duration-200 text-sm sm:text-base cursor-pointer"
+            onClick={openAddressesPage}
+            className="text-[#E41E26] dark:text-[#FDB913] text-sm font-semibold hover:underline flex items-center gap-1"
           >
-            <span className="flex items-center gap-2 text-right">
-              {selectedAddress ? (
-                <>
-                  <FaMapMarker className="text-[#E41E26] dark:text-[#FDB913]" />
-                  <span className="text-right">
-                    <span className="block font-semibold">
-                      {selectedAddress.city?.name || "عنوان"}
-                      {selectedAddress.isDefaultLocation && (
-                        <span className="mr-2 text-xs bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
-                          افتراضي
-                        </span>
-                      )}
-                    </span>
-                    <span className="block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
-                      {formatAddressText(selectedAddress)}
-                    </span>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <FaMapMarker className="text-[#E41E26] dark:text-[#FDB913]" />
-                  اختر عنوان التوصيل
-                </>
-              )}
-            </span>
-            <motion.div
-              animate={{
-                rotate: addressDropdownOpen ? 180 : 0,
-              }}
-              transition={{ duration: 0.3 }}
-            >
-              <FaChevronDown className="text-[#E41E26] dark:text-[#FDB913]" />
-            </motion.div>
+            <FaExchangeAlt className="text-xs" />
+            تغيير
           </button>
+        </div>
 
-          <AnimatePresence>
-            {addressDropdownOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                transition={{ duration: 0.2 }}
-                className="absolute z-50 mt-2 w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-2xl rounded-xl overflow-hidden max-h-60 overflow-y-auto"
+        <div className="bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] dark:from-gray-700 dark:to-gray-600 rounded-xl border border-[#FDB913]/30 dark:border-gray-600 p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-1">
+              <div
+                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center 
+                ${
+                  selectedAddress?.isDefaultLocation
+                    ? "bg-[#E41E26] dark:bg-[#FDB913] border-[#E41E26] dark:border-[#FDB913]"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
               >
-                <div className="p-3 border-b border-gray-100 dark:border-gray-600">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
-                      عناويني ({userAddresses.length})
-                    </h4>
-                    <button
-                      onClick={() => {
-                        setAddressDropdownOpen(false);
-                        navigate("/addresses");
-                      }}
-                      className="text-[#E41E26] dark:text-[#FDB913] text-sm font-semibold hover:underline flex items-center gap-1"
-                    >
-                      <FaPlusCircle />
-                      إضافة
-                    </button>
-                  </div>
-                </div>
-
-                {userAddresses.map((address) => (
-                  <div
-                    key={address.id}
-                    onClick={() => handleAddressSelect(address)}
-                    className={`px-4 py-3 hover:bg-gradient-to-r hover:from-[#fff8e7] hover:to-[#ffe5b4] dark:hover:from-gray-600 dark:hover:to-gray-500 cursor-pointer transition-all text-sm sm:text-base border-b border-gray-100 dark:border-gray-600 last:border-b-0 ${
-                      selectedAddress?.id === address.id
-                        ? "bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] dark:from-gray-600 dark:to-gray-500"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`mt-1 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                          selectedAddress?.id === address.id
-                            ? "bg-[#E41E26] dark:bg-[#FDB913] border-[#E41E26] dark:border-[#FDB913]"
-                            : "border-gray-300 dark:border-gray-600"
-                        }`}
-                      >
-                        {selectedAddress?.id === address.id && (
-                          <FaCheck className="text-white text-xs" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-gray-800 dark:text-white">
-                            {address.city?.name || "عنوان"}
-                          </span>
-                          {address.isDefaultLocation && (
-                            <span className="text-xs bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
-                              افتراضي
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-gray-600 dark:text-gray-400 text-xs">
-                          {formatAddressText(address)}
-                        </div>
-                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                          {address.phoneNumber && `📞 ${address.phoneNumber}`}
-                          {address.buildingNumber &&
-                            ` | 🏢 مبنى ${address.buildingNumber}`}
-                          {address.floorNumber &&
-                            ` | دور ${address.floorNumber}`}
-                          {address.flatNumber && ` | شقة ${address.flatNumber}`}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                {selectedAddress?.isDefaultLocation && (
+                  <FaCheck className="text-white text-xs" />
+                )}
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-semibold text-gray-800 dark:text-white">
+                  {selectedAddress?.city?.name || "عنوان"}
+                </span>
+                {selectedAddress?.isDefaultLocation && (
+                  <span className="text-xs bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
+                    افتراضي
+                  </span>
+                )}
+              </div>
+              <div className="text-gray-600 dark:text-gray-400 text-xs">
+                {formatAddressText(selectedAddress)}
+              </div>
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-500">
+                {selectedAddress?.phoneNumber &&
+                  `📞 ${selectedAddress.phoneNumber}`}
+                {selectedAddress?.buildingNumber &&
+                  ` | 🏢 مبنى ${selectedAddress.buildingNumber}`}
+                {selectedAddress?.floorNumber &&
+                  ` | دور ${selectedAddress.floorNumber}`}
+                {selectedAddress?.flatNumber &&
+                  ` | شقة ${selectedAddress.flatNumber}`}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -537,7 +506,6 @@ export default function Cart() {
         });
       }
 
-      console.log("Initial selected addons:", initialSelectedAddons);
       setSelectedAddons(initialSelectedAddons);
 
       setShowProductDetailsModal(true);
@@ -704,9 +672,9 @@ export default function Cart() {
       const cartItem = cartItems.find((item) => item.id === id);
       if (!cartItem) return;
 
-      await axiosInstance.put(`/api/CartItems/UpdateQuantity/${id}`, {
-        menuItemId: cartItem.menuItem?.id,
+      await axiosInstance.put(`/api/CartItems/Update/${id}`, {
         quantity: newQuantity,
+        note: cartItem.additionalNotes || "",
       });
 
       setCartItems((prevItems) =>
@@ -789,14 +757,33 @@ export default function Cart() {
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    const deliveryFee =
-      deliveryType === "delivery" && selectedArea ? selectedArea.fee : 0;
+    let deliveryFee = 0;
+
+    if (deliveryType === "delivery" && selectedArea) {
+      deliveryFee = selectedArea.fee;
+    } else if (deliveryType === "pickup" && pickupFee) {
+      deliveryFee = pickupFee.fee;
+    }
+
     return subtotal + deliveryFee;
   };
 
   const getDeliveryFee = () => {
-    if (deliveryType === "pickup") return 0;
-    return selectedArea ? selectedArea.fee : 0;
+    if (deliveryType === "delivery" && selectedArea) {
+      return selectedArea.fee;
+    } else if (deliveryType === "pickup" && pickupFee) {
+      return pickupFee.fee;
+    }
+    return 0;
+  };
+
+  const getDeliveryFeeId = () => {
+    if (deliveryType === "delivery" && selectedArea) {
+      return selectedArea.id;
+    } else if (deliveryType === "pickup" && pickupFee) {
+      return pickupFee.id;
+    }
+    return 0;
   };
 
   const handleCheckout = async () => {
@@ -886,20 +873,18 @@ export default function Cart() {
     }
 
     try {
-      const totalDiscount = cartItems.reduce((total, item) => {
+      cartItems.reduce((total, item) => {
         return total + (item.discountValue || 0) * item.quantity;
       }, 0);
 
       const orderData = {
-        cartId: cartId,
         branchId: selectedBranch.id,
-        deliveryFeeId: deliveryType === "delivery" ? selectedArea.id : 0,
+        deliveryFeeId: getDeliveryFeeId(),
+        notes: additionalNotes.trim(),
         locationId:
           deliveryType === "delivery" && selectedAddress
             ? selectedAddress.id
             : 0,
-        discount: totalDiscount,
-        notes: additionalNotes.trim(),
       };
 
       const response = await axiosInstance.post("/api/Orders/Add", orderData);
@@ -1573,7 +1558,7 @@ export default function Cart() {
                 خيارات {deliveryType === "delivery" ? "التوصيل" : "الاستلام"}
               </h2>
 
-              {deliveryType === "delivery" && renderAddressDropdown()}
+              {deliveryType === "delivery" && renderAddressSection()}
 
               <div className="mb-4 sm:mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -1801,6 +1786,11 @@ export default function Cart() {
                       <p className="text-green-600 dark:text-green-400 text-xs sm:text-sm">
                         {selectedBranch?.name || "المطعم"}
                       </p>
+                      {pickupFee && (
+                        <p className="text-green-700 dark:text-green-300 text-xs mt-1">
+                          رسوم الاستلام: {pickupFee.fee} ج.م
+                        </p>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -1897,16 +1887,14 @@ export default function Cart() {
                   </span>
                 </div>
 
-                {deliveryType === "delivery" && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-                      رسوم التوصيل
-                    </span>
-                    <span className="font-semibold text-gray-800 dark:text-white text-sm sm:text-base">
-                      {getDeliveryFee().toFixed(2)} ج.م
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+                    رسوم {deliveryType === "delivery" ? "التوصيل" : "الاستلام"}
+                  </span>
+                  <span className="font-semibold text-gray-800 dark:text-white text-sm sm:text-base">
+                    {getDeliveryFee().toFixed(2)} ج.م
+                  </span>
+                </div>
 
                 {deliveryType === "delivery" && selectedArea && (
                   <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
@@ -1970,6 +1958,19 @@ export default function Cart() {
                         <div className="flex justify-between text-xs sm:text-sm">
                           <span className="text-gray-600 dark:text-gray-400">
                             رسوم التوصيل:
+                          </span>
+                          <span className="font-semibold text-[#E41E26] dark:text-[#FDB913]">
+                            {getDeliveryFee().toFixed(2)} ج.م
+                          </span>
+                        </div>
+                      </>
+                    )}
+
+                    {deliveryType === "pickup" && pickupFee && (
+                      <>
+                        <div className="flex justify-between text-xs sm:text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">
+                            رسوم الاستلام:
                           </span>
                           <span className="font-semibold text-[#E41E26] dark:text-[#FDB913]">
                             {getDeliveryFee().toFixed(2)} ج.م
