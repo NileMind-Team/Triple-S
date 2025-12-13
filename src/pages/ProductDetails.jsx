@@ -54,7 +54,7 @@ const ProductDetails = () => {
 
   const [additionalNotes, setAdditionalNotes] = useState("");
   const [showNotesModal, setShowNotesModal] = useState(false);
-
+  const [categoryInfo, setCategoryInfo] = useState(null);
   const [newAddonOptions, setNewAddonOptions] = useState([]);
   const modalRef = useRef(null);
   const addonTypeModalRef = useRef(null);
@@ -110,6 +110,20 @@ const ProductDetails = () => {
     } catch (error) {
       console.error("Error fetching cart items:", error);
       setCartItemsCount(0);
+    }
+  };
+
+  const fetchCategoryInfo = async (categoryId) => {
+    try {
+      if (!categoryId) return;
+
+      const response = await axiosInstance.get(
+        `/api/Categories/Get/${categoryId}`
+      );
+      setCategoryInfo(response.data);
+    } catch (error) {
+      console.error("Error fetching category info:", error);
+      setCategoryInfo(null);
     }
   };
 
@@ -186,6 +200,10 @@ const ProductDetails = () => {
       };
 
       setProduct(transformedProduct);
+
+      if (productData.category?.id) {
+        fetchCategoryInfo(productData.category.id);
+      }
     } catch (error) {
       console.error("Error fetching product details:", error);
       Swal.fire({
@@ -278,6 +296,19 @@ const ProductDetails = () => {
     }
   };
 
+  const isCategoryDisabled = () => {
+    if (!categoryInfo) return false;
+    return !categoryInfo.isActive;
+  };
+
+  const isProductAvailableForCart = () => {
+    if (!product?.isActive) {
+      return false;
+    }
+
+    return !isCategoryDisabled();
+  };
+
   const incrementQuantity = () => setQuantity((prev) => prev + 1);
   const decrementQuantity = () =>
     setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
@@ -354,8 +385,8 @@ const ProductDetails = () => {
       return;
     }
 
-    if (!product.isActive) {
-      toast.warning(`${product.name} غير متوفر حالياً`, {
+    if (!isProductAvailableForCart()) {
+      toast.warning(`لا يمكن إضافة هذا المنتج إلى السلة حالياً`, {
         position: "top-right",
         autoClose: 2000,
         hideProgressBar: false,
@@ -1610,9 +1641,9 @@ const ProductDetails = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddToCart}
-                disabled={!product.isActive}
+                disabled={!isProductAvailableForCart()}
                 className={`w-full py-3 md:py-4 rounded-xl md:rounded-2xl font-semibold text-lg md:text-xl hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 md:gap-4 ${
-                  product.isActive
+                  isProductAvailableForCart()
                     ? "bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white"
                     : "bg-gray-400 text-gray-200 cursor-not-allowed"
                 }`}
@@ -1620,11 +1651,11 @@ const ProductDetails = () => {
               >
                 <FaShoppingCart className="text-lg md:text-xl" />
 
-                {product.isActive
+                {isProductAvailableForCart()
                   ? `أضف إلى السلة - ${toArabicNumbers(
                       calculateTotalPrice().toFixed(2)
                     )} ج.م`
-                  : "المنتج غير متوفر"}
+                  : "غير متوفر"}
               </motion.button>
             </div>
           </motion.div>

@@ -884,6 +884,26 @@ const Home = () => {
     }
   };
 
+  const isCategoryDisabled = (categoryId) => {
+    if (categoryId === "all" || categoryId === "offers") {
+      return false;
+    }
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category && !category.isActive;
+  };
+
+  const isProductAvailableForCart = (product) => {
+    if (!product.isActive) {
+      return false;
+    }
+
+    if (selectedCategory === "all" || selectedCategory === "offers") {
+      return true;
+    }
+
+    return !isCategoryDisabled(selectedCategory);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-[#fff8e7] to-[#ffe5b4] dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 px-4">
@@ -1032,6 +1052,8 @@ const Home = () => {
                   whileHover={{ y: -5 }}
                   className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100 dark:border-gray-700 cursor-pointer group w-full relative min-h-[180px] ${
                     !product.isActive ? "opacity-70" : ""
+                  } ${
+                    isCategoryDisabled(selectedCategory) ? "opacity-80" : ""
                   } ${productsLoading ? "opacity-50" : ""}`}
                   onClick={(e) => {
                     const isButtonClick =
@@ -1160,19 +1182,28 @@ const Home = () => {
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={(e) => handleAddToCart(product, e)}
-                          disabled={!product.isActive || productsLoading}
+                          onClick={(e) => {
+                            if (isProductAvailableForCart(product)) {
+                              handleAddToCart(product, e);
+                            }
+                          }}
+                          disabled={
+                            !isProductAvailableForCart(product) ||
+                            productsLoading
+                          }
                           className={`flex-1 py-2.5 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs no-product-details ${
-                            product.isActive && !productsLoading
+                            isProductAvailableForCart(product) &&
+                            !productsLoading
                               ? "bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white"
                               : "bg-gray-400 text-gray-200 cursor-not-allowed"
                           }`}
                         >
                           <FaShoppingCart className="w-3.5 h-3.5" />
                           <span>
-                            {product.isActive && !productsLoading
-                              ? "أضف إلى السلة"
-                              : "غير متوفر"}
+                            {!isProductAvailableForCart(product) ||
+                            productsLoading
+                              ? "غير متوفر"
+                              : "أضف إلى السلة"}
                           </span>
                         </motion.button>
 
@@ -1276,19 +1307,28 @@ const Home = () => {
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={(e) => handleAddToCart(product, e)}
-                          disabled={!product.isActive || productsLoading}
+                          onClick={(e) => {
+                            if (isProductAvailableForCart(product)) {
+                              handleAddToCart(product, e);
+                            }
+                          }}
+                          disabled={
+                            !isProductAvailableForCart(product) ||
+                            productsLoading
+                          }
                           className={`flex-1 py-2 sm:py-2.5 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm no-product-details ${
-                            product.isActive && !productsLoading
+                            isProductAvailableForCart(product) &&
+                            !productsLoading
                               ? "bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white"
                               : "bg-gray-400 text-gray-200 cursor-not-allowed"
                           }`}
                         >
                           <FaShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                           <span className="xs:hidden">
-                            {product.isActive && !productsLoading
-                              ? "أضف إلى السلة"
-                              : "غير متوفر"}
+                            {!isProductAvailableForCart(product) ||
+                            productsLoading
+                              ? "غير متوفر"
+                              : "أضف إلى السلة"}
                           </span>
                         </motion.button>
 
