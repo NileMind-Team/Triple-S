@@ -1009,7 +1009,6 @@ export default function MyOrders() {
         </div>
       </div>
 
-      {/* Order Details Modal */}
       <AnimatePresence>
         {selectedOrder && (
           <>
@@ -1022,33 +1021,32 @@ export default function MyOrders() {
               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             />
 
-            {/* Modal */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
             >
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col mx-auto my-auto h-full sm:h-auto">
                 {/* Modal Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] dark:from-gray-800 dark:to-gray-700">
-                  <div className="flex items-center gap-3">
-                    <FaReceipt className="text-[#E41E26] text-2xl" />
-                    <div>
-                      <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-200">
+                <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-[#fff8e7] to-[#ffe5b4] dark:from-gray-800 dark:to-gray-700">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FaReceipt className="text-[#E41E26] text-xl sm:text-2xl flex-shrink-0" />
+                    <div className="min-w-0">
+                      <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-200 truncate">
                         طلب #{selectedOrder.orderNumber}
                       </h2>
                       {orderDetails && (
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
                           <span
-                            className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(
+                            className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold ${getStatusColor(
                               orderDetails.status
-                            )}`}
+                            )} whitespace-nowrap self-start`}
                           >
                             {getStatusText(orderDetails.status)}
                           </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                          <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {addTwoHoursToDate(
                               orderDetails.createdAt
                             ).toLocaleDateString("ar-SA", {
@@ -1065,52 +1063,51 @@ export default function MyOrders() {
                   </div>
                   <button
                     onClick={closeOrderDetails}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200"
+                    className="p-1 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200 flex-shrink-0 ml-2"
                   >
-                    <FaTimes className="text-gray-500 dark:text-gray-400 w-5 h-5" />
+                    <FaTimes className="text-gray-500 dark:text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </div>
 
-                {/* Modal Content */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
                   {loadingOrderDetails ? (
-                    <div className="flex flex-col items-center justify-center h-64">
-                      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#E41E26] mb-4"></div>
+                    <div className="flex flex-col items-center justify-center h-48 sm:h-64">
+                      <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-t-4 border-b-4 border-[#E41E26] mb-4"></div>
                     </div>
                   ) : orderDetails ? (
-                    <div className="space-y-6">
+                    <div className="space-y-4 sm:space-y-6">
                       {/* Customer Information */}
-                      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-5">
-                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2 text-lg">
-                          <FaUser className="text-[#E41E26]" />
+                      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5">
+                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2 text-base sm:text-lg">
+                          <FaUser className="text-[#E41E26] flex-shrink-0" />
                           معلومات العميل
                         </h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <FaPhone className="text-gray-400 dark:text-gray-500" />
-                            <div>
-                              <p className="font-medium text-gray-800 dark:text-gray-200">
+                        <div className="space-y-2 sm:space-y-3">
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <FaPhone className="text-gray-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-800 dark:text-gray-200 break-words">
                                 {orderDetails.location?.phoneNumber ||
                                   "غير متاح"}
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex items-start gap-3">
-                            <FaMapMarkerAlt className="text-gray-400 dark:text-gray-500 mt-1 flex-shrink-0" />
-                            <div>
-                              <p className="font-medium text-gray-800 dark:text-gray-200">
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <FaMapMarkerAlt className="text-gray-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-800 dark:text-gray-200 break-words">
                                 {orderDetails.location?.streetName || ""}{" "}
                                 {orderDetails.location?.buildingNumber || ""}
                               </p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 break-words">
                                 {orderDetails.location?.city?.name || ""} -
                                 الطابق{" "}
                                 {orderDetails.location?.floorNumber || ""}، شقة{" "}
                                 {orderDetails.location?.flatNumber || ""}
                               </p>
                               {orderDetails.location?.detailedDescription && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 break-words">
                                   {orderDetails.location.detailedDescription}
                                 </p>
                               )}
@@ -1121,12 +1118,12 @@ export default function MyOrders() {
 
                       {/* Order Items */}
                       {orderDetails.items && orderDetails.items.length > 0 && (
-                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-5">
-                          <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2 text-lg">
-                            <FaBox className="text-[#E41E26]" />
+                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5">
+                          <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2 text-base sm:text-lg">
+                            <FaBox className="text-[#E41E26] flex-shrink-0" />
                             العناصر المطلوبة ({orderDetails.items.length})
                           </h3>
-                          <div className="space-y-4">
+                          <div className="space-y-3 sm:space-y-4">
                             {orderDetails.items.map((item, index) => {
                               const imageUrl =
                                 item.menuItemImageUrlSnapshotAtOrder ||
@@ -1161,9 +1158,9 @@ export default function MyOrders() {
                               return (
                                 <div
                                   key={index}
-                                  className="flex items-start gap-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                                  className="flex items-start gap-3 sm:gap-4 p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                                 >
-                                  <div className="flex-shrink-0 w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+                                  <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
                                     {imageUrl ? (
                                       <img
                                         src={`${BASE_URL}${imageUrl}`}
@@ -1177,19 +1174,19 @@ export default function MyOrders() {
                                       />
                                     ) : (
                                       <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-600">
-                                        <FaBox className="text-gray-400 dark:text-gray-500 text-2xl" />
+                                        <FaBox className="text-gray-400 dark:text-gray-500 text-lg sm:text-xl" />
                                       </div>
                                     )}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                    <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-sm sm:text-base truncate">
                                       {itemName}
                                     </h4>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
                                       الكمية: {item.quantity}
                                     </p>
                                     {itemDescription && (
-                                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
+                                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
                                         {itemDescription}
                                       </p>
                                     )}
@@ -1204,7 +1201,7 @@ export default function MyOrders() {
                                               (opt, optIndex) => (
                                                 <span
                                                   key={optIndex}
-                                                  className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded"
+                                                  className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded"
                                                 >
                                                   {opt.optionNameAtOrder} (+ج.م{" "}
                                                   {opt.optionPriceAtOrder?.toFixed(
@@ -1219,10 +1216,10 @@ export default function MyOrders() {
                                       )}
                                   </div>
                                   <div className="text-right flex-shrink-0">
-                                    <p className="font-bold text-gray-800 dark:text-gray-200">
+                                    <p className="font-bold text-gray-800 dark:text-gray-200 text-sm sm:text-base">
                                       ج.م {totalPrice?.toFixed(2) || "0.00"}
                                     </p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 hidden xs:block">
                                       الأساسي: ج.م {basePrice.toFixed(2)} لكل
                                     </p>
                                     {itemAdditions > 0 && (
@@ -1246,16 +1243,16 @@ export default function MyOrders() {
                       )}
 
                       {/* Order Summary */}
-                      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-5">
-                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-4 text-lg">
+                      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5">
+                        <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-3 text-base sm:text-lg">
                           ملخص الطلب
                         </h3>
-                        <div className="space-y-3">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">
+                        <div className="space-y-2 sm:space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                               المجموع الجزئي (العناصر):
                             </span>
-                            <span className="font-medium text-gray-800 dark:text-gray-200">
+                            <span className="font-medium text-sm sm:text-base text-gray-800 dark:text-gray-200">
                               ج.م{" "}
                               {orderDetails.calculatedSubtotal?.toFixed(2) ||
                                 "0.00"}
@@ -1263,12 +1260,12 @@ export default function MyOrders() {
                           </div>
 
                           {orderDetails.calculatedTotalAdditions > 0 && (
-                            <div className="flex justify-between text-blue-600 dark:text-blue-400">
-                              <span className="flex items-center gap-1">
+                            <div className="flex justify-between items-center text-blue-600 dark:text-blue-400">
+                              <span className="flex items-center gap-1 text-sm sm:text-base">
                                 <FaPlusCircle className="w-3 h-3" />
                                 إجمالي الإضافات:
                               </span>
-                              <span className="font-medium">
+                              <span className="font-medium text-sm sm:text-base">
                                 +ج.م{" "}
                                 {orderDetails.calculatedTotalAdditions?.toFixed(
                                   2
@@ -1277,11 +1274,11 @@ export default function MyOrders() {
                             </div>
                           )}
 
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                               رسوم التوصيل:
                             </span>
-                            <span className="font-medium text-gray-800 dark:text-gray-200">
+                            <span className="font-medium text-sm sm:text-base text-gray-800 dark:text-gray-200">
                               ج.م{" "}
                               {orderDetails.calculatedDeliveryFee?.toFixed(2) ||
                                 "0.00"}
@@ -1289,7 +1286,7 @@ export default function MyOrders() {
                           </div>
 
                           {orderDetails.deliveryFee && (
-                            <div className="text-sm text-gray-500 dark:text-gray-400 pl-4">
+                            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 pl-3 sm:pl-4">
                               <i>
                                 {orderDetails.deliveryFee.areaName} -{" "}
                                 {orderDetails.deliveryFee.estimatedTimeMin}-
@@ -1300,12 +1297,12 @@ export default function MyOrders() {
                           )}
 
                           {orderDetails.calculatedTotalDiscount > 0 && (
-                            <div className="flex justify-between text-green-600 dark:text-green-400">
-                              <span className="flex items-center gap-1">
+                            <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+                              <span className="flex items-center gap-1 text-sm sm:text-base">
                                 <FaTag className="w-3 h-3" />
                                 إجمالي الخصم:
                               </span>
-                              <span className="font-medium">
+                              <span className="font-medium text-sm sm:text-base">
                                 -ج.م{" "}
                                 {orderDetails.calculatedTotalDiscount?.toFixed(
                                   2
@@ -1314,8 +1311,8 @@ export default function MyOrders() {
                             </div>
                           )}
 
-                          <div className="border-t pt-3 mt-3">
-                            <div className="flex justify-between font-bold text-lg">
+                          <div className="border-t pt-2 sm:pt-3 mt-2 sm:mt-3">
+                            <div className="flex justify-between items-center font-bold text-base sm:text-lg">
                               <span className="text-gray-800 dark:text-gray-200">
                                 الإجمالي:
                               </span>
@@ -1330,7 +1327,7 @@ export default function MyOrders() {
                             </div>
 
                             {orderDetails.calculatedTotalDiscount > 0 && (
-                              <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 <span className="text-green-600 dark:text-green-400">
                                   لقد وفرت ج.م{" "}
                                   {orderDetails.calculatedTotalDiscount?.toFixed(
@@ -1347,10 +1344,10 @@ export default function MyOrders() {
 
                       {/* Notes */}
                       {orderDetails.notes && (
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-5">
-                          <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5">
+                          <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2 text-sm sm:text-base">
                             <svg
-                              className="w-5 h-5 text-yellow-600 dark:text-yellow-400"
+                              className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0"
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -1362,7 +1359,7 @@ export default function MyOrders() {
                             </svg>
                             ملاحظات خاصة
                           </h3>
-                          <p className="text-gray-700 dark:text-gray-300">
+                          <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 break-words">
                             {orderDetails.notes}
                           </p>
                         </div>
@@ -1370,16 +1367,16 @@ export default function MyOrders() {
 
                       {/* Admin Actions */}
                       {isAdminOrRestaurantOrBranch && (
-                        <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={(e) =>
                               handleChangeOrderStatus(orderDetails.id, e)
                             }
-                            className="flex-1 flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors"
+                            className="flex-1 flex items-center justify-center gap-2 bg-blue-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors text-sm sm:text-base"
                           >
-                            <FaEdit />
+                            <FaEdit className="w-3 h-3 sm:w-4 sm:h-4" />
                             تغيير الحالة
                           </motion.button>
                           {orderDetails.status !== "Cancelled" &&
@@ -1390,9 +1387,9 @@ export default function MyOrders() {
                                 onClick={(e) =>
                                   handleCancelOrder(orderDetails.id, e)
                                 }
-                                className="flex-1 flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-red-600 transition-colors"
+                                className="flex-1 flex items-center justify-center gap-2 bg-red-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm sm:text-base"
                               >
-                                <FaTrash />
+                                <FaTrash className="w-3 h-3 sm:w-4 sm:h-4" />
                                 إلغاء الطلب
                               </motion.button>
                             )}
@@ -1400,12 +1397,12 @@ export default function MyOrders() {
                       )}
                     </div>
                   ) : (
-                    <div className="text-center py-12">
-                      <FaTimesCircle className="text-red-500 text-4xl mx-auto mb-4" />
-                      <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">
+                    <div className="text-center py-8 sm:py-12">
+                      <FaTimesCircle className="text-red-500 text-3xl sm:text-4xl mx-auto mb-3 sm:mb-4" />
+                      <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">
                         فشل تحميل تفاصيل الطلب
                       </h3>
-                      <p className="text-gray-600 dark:text-gray-400">
+                      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                         يرجى المحاولة مرة أخرى لاحقاً
                       </p>
                     </div>
