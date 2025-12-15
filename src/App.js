@@ -16,7 +16,6 @@ import Footer from "./components/Footer";
 import AdminUsers from "./pages/AdminUsers";
 import AdminBranches from "./pages/AdminBranches";
 import DeliveryCostManagement from "./pages/DeliveryCostManagement";
-import CouponsManagement from "./pages/CouponsManagement";
 import CitiesManagement from "./pages/CitiesManagement";
 import ProductDetails from "./pages/ProductDetails";
 import Cashier from "./pages/Cashier";
@@ -104,7 +103,7 @@ function App() {
             path="/admin/delivery-cost"
             element={<DeliveryCostManagement />}
           />
-          <Route path="/admin/coupons" element={<CouponsManagement />} />
+          {/* <Route path="/admin/coupons" element={<CouponsManagement />} /> */}
           <Route path="/admin/cities" element={<CitiesManagement />} />
           <Route path="/product/:id" element={<ProductDetails />} />
           <Route path="/cashier" element={<Cashier />} />

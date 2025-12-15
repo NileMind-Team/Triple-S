@@ -16,7 +16,6 @@ import {
   FaMoon,
   FaSun,
   FaMoneyBillWave,
-  FaTag,
   FaCity,
   FaCashRegister,
   FaStore,
@@ -165,10 +164,10 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
     navigate("/admin/delivery-cost");
   };
 
-  const handleCouponsClick = () => {
-    setIsSidebarOpen(false);
-    navigate("/admin/coupons");
-  };
+  // const handleCouponsClick = () => {
+  //   setIsSidebarOpen(false);
+  //   navigate("/admin/coupons");
+  // };
 
   const handleCitiesClick = () => {
     setIsSidebarOpen(false);
@@ -612,7 +611,7 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
                           </button>
                         </motion.div>
 
-                        <motion.div
+                        {/* <motion.div
                           whileHover={{ scale: 1.02, x: -4 }}
                           whileTap={{ scale: 0.98 }}
                         >
@@ -626,7 +625,7 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
                             </div>
                             <span className="text-lg">إدارة الكوبونات</span>
                           </button>
-                        </motion.div>
+                        </motion.div> */}
 
                         <motion.div
                           whileHover={{ scale: 1.02, x: -4 }}
