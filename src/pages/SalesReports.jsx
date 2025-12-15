@@ -3,8 +3,6 @@ import { motion } from "framer-motion";
 import {
   FaCalendarAlt,
   FaChartBar,
-  FaSortAmountDown,
-  FaSortAmountUp,
   FaDollarSign,
   FaShoppingCart,
   FaTruck,
@@ -12,87 +10,58 @@ import {
   FaPrint,
   FaFilter,
   FaListAlt,
-  FaTable,
+  FaUser,
+  FaMapMarkerAlt,
+  FaBox,
+  FaTimes,
+  FaEye,
+  FaClipboardList,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
+import axiosInstance from "../api/axiosInstance";
 
-const generateMockReportData = (startDate, endDate) => {
-  if (!startDate || !endDate) return [];
+const fetchOrders = async (startDate, endDate) => {
+  try {
+    let url = `/api/Orders/GetAll`;
+    const params = {};
 
-  const mockOrders = [];
-  const products = [
-    "دجاج مشوي",
-    "برجر دجاج",
-    "ساندوتش دجاج",
-    "بطاطس مقلية",
-    "كولا",
-    "مايونيز",
-    "شاورما دجاج",
-    "أجنحة دجاج",
-    "سلطة خضار",
-    "بيتزا دجاج",
-  ];
-
-  const customers = [
-    "أحمد محمد",
-    "سارة علي",
-    "محمود حسن",
-    "فاطمة إبراهيم",
-    "خالد عبدالله",
-    "نورا سعيد",
-    "يوسف كمال",
-    "ليلى مصطفى",
-    "عمر رضا",
-    "هبة شريف",
-  ];
-
-  const cities = ["القاهرة", "الجيزة", "الإسكندرية", "المنصورة", "طنطا"];
-
-  const daysDiff = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
-  const days = Math.max(daysDiff, 1);
-
-  for (let i = 0; i < 50; i++) {
-    const randomDays = Math.floor(Math.random() * days);
-    const orderDate = new Date(startDate);
-    orderDate.setDate(orderDate.getDate() + randomDays);
-
-    const orderId = 1000 + Math.floor(Math.random() * 9000);
-    const numItems = Math.floor(Math.random() * 5) + 1;
-
-    let orderTotal = 0;
-    const orderItems = [];
-
-    for (let j = 0; j < numItems; j++) {
-      const productIndex = Math.floor(Math.random() * products.length);
-      const quantity = Math.floor(Math.random() * 3) + 1;
-      const unitPrice = Math.floor(Math.random() * 100) + 20;
-      const totalPrice = quantity * unitPrice;
-
-      orderTotal += totalPrice;
-
-      orderItems.push({
-        orderId: orderId,
-        orderDate: orderDate,
-        dateTime: format(orderDate, "yyyy-MM-dd HH:mm"),
-        productName: products[productIndex],
-        quantity: quantity,
-        unitPrice: unitPrice,
-        totalPrice: totalPrice,
-        orderTotal: orderTotal,
-        orderType: Math.random() > 0.5 ? "Delivery" : "Pickup",
-        customerName: customers[Math.floor(Math.random() * customers.length)],
-        status: Math.random() > 0.8 ? "قيد التنفيذ" : "مكتمل",
-        city: cities[Math.floor(Math.random() * cities.length)],
-      });
+    if (startDate) {
+      params.startRange = format(startDate, "yyyy-MM-dd");
+    }
+    if (endDate) {
+      params.endRange = format(endDate, "yyyy-MM-dd");
     }
 
-    mockOrders.push(...orderItems);
-  }
+    const response = await axiosInstance.get(url, { params });
 
-  return mockOrders;
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    throw error;
+  }
+};
+
+const fetchOrderDetails = async (orderId) => {
+  try {
+    const response = await axiosInstance.get(`/api/Orders/GetById/${orderId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching order details:", error);
+    throw error;
+  }
+};
+
+const fetchUsers = async () => {
+  try {
+    const response = await axiosInstance.get("/api/Users/GetAll");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw error;
+  }
 };
 
 const calculateSummary = (data, startDate, endDate) => {
@@ -102,7 +71,6 @@ const calculateSummary = (data, startDate, endDate) => {
       totalOrders: 0,
       deliveryOrders: 0,
       pickupOrders: 0,
-      averageOrderValue: 0,
       topProducts: [],
       dateRange:
         startDate && endDate
@@ -114,25 +82,34 @@ const calculateSummary = (data, startDate, endDate) => {
     };
   }
 
-  const totalSales = data.reduce((sum, item) => sum + item.totalPrice, 0);
-  const totalOrders = [...new Set(data.map((item) => item.orderId))].length;
+  const totalSales = data.reduce((sum, order) => sum + order.totalWithFee, 0);
+  const totalOrders = data.length;
+
   const deliveryOrders = data.filter(
-    (item) => item.orderType === "Delivery"
+    (order) => order.deliveryFee.fee > 0
   ).length;
   const pickupOrders = data.filter(
-    (item) => item.orderType === "Pickup"
+    (order) => order.deliveryFee.fee === 0
   ).length;
 
   const productSales = {};
-  data.forEach((item) => {
-    if (!productSales[item.productName]) {
-      productSales[item.productName] = {
-        quantity: 0,
-        revenue: 0,
-      };
+  data.forEach((order) => {
+    if (order.items && order.items.length > 0) {
+      order.items.forEach((item) => {
+        const productName =
+          item.menuItem?.name ||
+          item.menuItemNameSnapshotAtOrder ||
+          "منتج غير معروف";
+        if (!productSales[productName]) {
+          productSales[productName] = {
+            quantity: 0,
+            revenue: 0,
+          };
+        }
+        productSales[productName].quantity += item.quantity || 1;
+        productSales[productName].revenue += item.totalPrice || 0;
+      });
     }
-    productSales[item.productName].quantity += item.quantity;
-    productSales[item.productName].revenue += item.totalPrice;
   });
 
   const topProducts = Object.entries(productSales)
@@ -149,7 +126,6 @@ const calculateSummary = (data, startDate, endDate) => {
     totalOrders,
     deliveryOrders,
     pickupOrders,
-    averageOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
     topProducts,
     dateRange:
       startDate && endDate
@@ -161,17 +137,345 @@ const calculateSummary = (data, startDate, endDate) => {
   };
 };
 
+const OrderDetailsModal = ({ order, onClose, users }) => {
+  if (!order) return null;
+
+  const BASE_URL = "https://restaurant-template.runasp.net";
+
+  // البحث عن اسم المستخدم بناءً على الـ userId
+  const findUserName = (userId) => {
+    if (!userId || !users) return "غير معروف";
+    const user = users.find((u) => u.id === userId);
+    return user ? `${user.firstName} ${user.lastName}` : userId.substring(0, 8);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="relative bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#E41E26] to-[#FDB913] p-6 relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl">
+                <FaClipboardList className="text-white text-2xl" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  تفاصيل الطلب #{order.orderNumber}
+                </h2>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <FaTimes className="text-white text-xl" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="overflow-y-auto max-h-[calc(90vh-80px)] p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <FaUser className="text-[#E41E26]" />
+                <h3 className="font-bold text-gray-800 dark:text-white">
+                  معلومات العميل
+                </h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    اسم العميل:
+                  </span>
+                  <span className="font-medium text-gray-800 dark:text-white">
+                    {findUserName(order.userId)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    رقم الهاتف:
+                  </span>
+                  <span className="font-medium text-gray-800 dark:text-white">
+                    {order.location?.phoneNumber || "غير متوفر"}
+                  </span>
+                </div>
+                {order.location?.city && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      المدينة:
+                    </span>
+                    <span className="font-medium text-gray-800 dark:text-white">
+                      {order.location.city.name || order.location.city}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <FaMapMarkerAlt className="text-[#E41E26]" />
+                <h3 className="font-bold text-gray-800 dark:text-white">
+                  معلومات التوصيل
+                </h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    نوع الطلب:
+                  </span>
+                  <span
+                    className={`font-medium ${
+                      order.deliveryFee?.fee > 0
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-green-600 dark:text-green-400"
+                    }`}
+                  >
+                    {order.deliveryFee?.areaName ||
+                      (order.deliveryFee?.fee > 0 ? "توصيل" : "استلام")}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    العنوان:
+                  </span>
+                  <span className="font-medium text-gray-800 dark:text-white">
+                    {order.location?.streetName || "غير متوفر"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    تكلفة التوصيل:
+                  </span>
+                  <span className="font-medium text-gray-800 dark:text-white">
+                    {order.deliveryCost?.toFixed(2) || "0.00"} ج.م
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <FaBox className="text-[#E41E26]" />
+              <h3 className="font-bold text-gray-800 dark:text-white">
+                المنتجات المطلوبة
+              </h3>
+            </div>
+            {order.items && order.items.length > 0 ? (
+              <div className="space-y-4">
+                {order.items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-lg transition-shadow duration-200"
+                  >
+                    <div className="flex flex-col md:flex-row gap-4">
+                      {/* صورة المنتج */}
+                      {(item.menuItem?.imageUrl ||
+                        item.menuItemImageUrlSnapshotAtOrder) && (
+                        <div className="md:w-1/4">
+                          <div className="relative w-full h-48 md:h-40 rounded-lg overflow-hidden">
+                            <img
+                              src={`${BASE_URL}/${
+                                item.menuItem?.imageUrl ||
+                                item.menuItemImageUrlSnapshotAtOrder
+                              }`}
+                              alt={
+                                item.menuItem?.name ||
+                                item.menuItemNameSnapshotAtOrder ||
+                                "صورة المنتج"
+                              }
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src =
+                                  "https://via.placeholder.com/300x200?text=No+Image";
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* معلومات المنتج */}
+                      <div
+                        className={`${
+                          item.menuItem?.imageUrl ||
+                          item.menuItemImageUrlSnapshotAtOrder
+                            ? "md:w-3/4"
+                            : "w-full"
+                        }`}
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="md:col-span-2">
+                            <p className="font-bold text-lg text-gray-800 dark:text-white mb-1">
+                              {item.menuItem?.name ||
+                                item.menuItemNameSnapshotAtOrder ||
+                                "منتج غير معروف"}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                              {item.menuItem?.description?.substring(0, 100) ||
+                                item.menuItemDescriptionAtOrder?.substring(
+                                  0,
+                                  100
+                                ) ||
+                                "لا يوجد وصف"}
+                              {(item.menuItem?.description?.length > 100 ||
+                                item.menuItemDescriptionAtOrder?.length >
+                                  100) &&
+                                "..."}
+                            </p>
+                          </div>
+
+                          <div className="text-center">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                              الكمية
+                            </p>
+                            <p className="font-bold text-lg text-gray-800 dark:text-white">
+                              {item.quantity || 1}
+                            </p>
+                          </div>
+
+                          <div className="text-center">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                              السعر
+                            </p>
+                            <p className="font-bold text-lg text-green-600 dark:text-green-400">
+                              {item.menuItem?.basePrice?.toFixed(2) || "0.00"}{" "}
+                              ج.م
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                الخصم
+                              </p>
+                              <p className="font-bold text-red-600 dark:text-red-400">
+                                {item.totalDiscount?.toFixed(2) || "0.00"} ج.م
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                الإجمالي
+                              </p>
+                              <p className="font-bold text-lg text-[#E41E26] dark:text-[#FDB913]">
+                                {item.totalPrice?.toFixed(2) || "0.00"} ج.م
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <FaBox className="mx-auto text-3xl text-gray-400 dark:text-gray-500 mb-3" />
+                <p className="text-gray-600 dark:text-gray-400">
+                  لا توجد منتجات في هذا الطلب
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  الإجمالي قبل الخصم
+                </p>
+                <p className="text-xl font-bold text-gray-800 dark:text-white">
+                  {order.totalWithoutFee?.toFixed(2) || "0.00"} ج.م
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  إجمالي الخصم
+                </p>
+                <p className="text-xl font-bold text-red-600 dark:text-red-400">
+                  {order.totalDiscount?.toFixed(2) || "0.00"} ج.م
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  المبلغ النهائي
+                </p>
+                <p className="text-xl font-bold text-[#E41E26] dark:text-[#FDB913]">
+                  {order.totalWithFee?.toFixed(2) || "0.00"} ج.م
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  حالة الطلب
+                </p>
+                <p
+                  className={`text-lg font-bold ${
+                    order.status === "Pending"
+                      ? "text-yellow-600 dark:text-yellow-400"
+                      : order.status === "Preparing"
+                      ? "text-blue-600 dark:text-blue-400"
+                      : order.status === "Delivered"
+                      ? "text-green-600 dark:text-green-400"
+                      : order.status === "Cancelled"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-gray-600 dark:text-gray-400"
+                  }`}
+                >
+                  {order.status === "Pending"
+                    ? "قيد الانتظار"
+                    : order.status === "Preparing"
+                    ? "قيد التحضير"
+                    : order.status === "Delivered"
+                    ? "تم التوصيل"
+                    : order.status === "Cancelled"
+                    ? "ملغي"
+                    : order.status}
+                </p>
+              </div>
+            </div>
+            {order.notes && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  ملاحظات:
+                </p>
+                <p className="text-gray-800 dark:text-gray-300">
+                  {order.notes}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 const SalesReports = () => {
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [reportData, setReportData] = useState([]);
   const [summary, setSummary] = useState(null);
-  const [sortConfig, setSortConfig] = useState({
-    key: "orderDate",
-    direction: "desc",
-  });
-  const [selectedView, setSelectedView] = useState("detailed");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [orderDetails, setOrderDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [users, setUsers] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
     setSummary({
@@ -179,13 +483,27 @@ const SalesReports = () => {
       totalOrders: 0,
       deliveryOrders: 0,
       pickupOrders: 0,
-      averageOrderValue: 0,
       topProducts: [],
       dateRange: "لم يتم تحديد فترة",
     });
+
+    // جلب بيانات المستخدمين
+    const loadUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        const usersData = await fetchUsers();
+        setUsers(usersData);
+      } catch (error) {
+        console.error("Error loading users:", error);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    loadUsers();
   }, []);
 
-  const fetchReportData = () => {
+  const fetchReportData = async () => {
     if (!startDate || !endDate) {
       Swal.fire({
         icon: "warning",
@@ -210,15 +528,15 @@ const SalesReports = () => {
 
     setLoading(true);
     try {
-      const mockData = generateMockReportData(startDate, endDate);
-      setReportData(mockData);
-      const summaryData = calculateSummary(mockData, startDate, endDate);
+      const orders = await fetchOrders(startDate, endDate);
+      setReportData(orders);
+      const summaryData = calculateSummary(orders, startDate, endDate);
       setSummary(summaryData);
 
       Swal.fire({
         icon: "success",
         title: "تم تحميل التقرير",
-        text: `تم تحميل ${mockData.length} عنصر طلب من ${summaryData.totalOrders} طلب`,
+        text: `تم تحميل ${orders.length} طلب`,
         timer: 1500,
         showConfirmButton: false,
       });
@@ -236,51 +554,37 @@ const SalesReports = () => {
     }
   };
 
-  const handleSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
+  const handleViewOrderDetails = async (orderId) => {
+    setLoadingDetails(true);
+    try {
+      const details = await fetchOrderDetails(orderId);
+      setOrderDetails(details);
+      setSelectedOrder(details);
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "خطأ",
+        text: "فشل في تحميل تفاصيل الطلب",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } finally {
+      setLoadingDetails(false);
     }
-    setSortConfig({ key, direction });
   };
 
-  const sortedData = React.useMemo(() => {
-    if (!reportData || reportData.length === 0) return [];
+  const handleCloseOrderDetails = () => {
+    setSelectedOrder(null);
+    setOrderDetails(null);
+  };
 
-    const sortableData = [...reportData];
-    sortableData.sort((a, b) => {
-      if (sortConfig.key === "orderDate") {
-        const dateA = new Date(a.orderDate).getTime();
-        const dateB = new Date(b.orderDate).getTime();
-        if (dateA < dateB) {
-          return sortConfig.direction === "asc" ? -1 : 1;
-        }
-        if (dateA > dateB) {
-          return sortConfig.direction === "asc" ? 1 : -1;
-        }
-        return 0;
-      }
-
-      if (typeof a[sortConfig.key] === "string") {
-        if (a[sortConfig.key].toLowerCase() < b[sortConfig.key].toLowerCase()) {
-          return sortConfig.direction === "asc" ? -1 : 1;
-        }
-        if (a[sortConfig.key].toLowerCase() > b[sortConfig.key].toLowerCase()) {
-          return sortConfig.direction === "asc" ? 1 : -1;
-        }
-        return 0;
-      }
-
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === "asc" ? -1 : 1;
-      }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === "asc" ? 1 : -1;
-      }
-      return 0;
-    });
-    return sortableData;
-  }, [reportData, sortConfig]);
+  // دالة للبحث عن اسم المستخدم بناءً على الـ userId
+  const findUserName = (userId) => {
+    if (!userId || !users || users.length === 0)
+      return userId?.substring(0, 8) || "غير معروف";
+    const user = users.find((u) => u.id === userId);
+    return user ? `${user.firstName} ${user.lastName}` : userId.substring(0, 8);
+  };
 
   const handlePrint = () => {
     if (!reportData || reportData.length === 0) {
@@ -330,12 +634,6 @@ const SalesReports = () => {
             font-size: 16px;
             margin-top: 10px;
           }
-          .header .view-type {
-            color: #666;
-            font-size: 16px;
-            margin-top: 5px;
-            font-weight: bold;
-          }
           .summary-section {
             background: #f8f9fa;
             padding: 20px;
@@ -378,18 +676,21 @@ const SalesReports = () => {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            font-size: 12px;
           }
           th {
             background: #E41E26;
             color: white;
-            padding: 12px;
-            text-align: right;
+            padding: 8px;
+            text-align: center;
             font-weight: bold;
+            font-size: 12px;
           }
           td {
-            padding: 10px;
-            text-align: right;
+            padding: 6px;
+            text-align: center;
             border-bottom: 1px solid #ddd;
+            font-size: 11px;
           }
           tr:nth-child(even) {
             background: #f9f9f9;
@@ -400,41 +701,24 @@ const SalesReports = () => {
           }
           .delivery { color: #2196F3; }
           .pickup { color: #4CAF50; }
-          .top-products {
-            margin-top: 30px;
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border-right: 4px solid #E41E26;
-          }
-          .product-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-          }
-          .product-item:last-child {
-            border-bottom: none;
-          }
-          .product-rank {
-            background: #E41E26;
-            color: white;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-          }
           .footer {
             text-align: center;
             margin-top: 40px;
             padding-top: 20px;
             border-top: 1px solid #ddd;
             color: #666;
-            font-size: 14px;
+            font-size: 12px;
           }
+          .status-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+          }
+          .status-pending { background: #fff3cd; color: #856404; }
+          .status-preparing { background: #cce5ff; color: #004085; }
+          .status-delivered { background: #d4edda; color: #155724; }
+          .status-cancelled { background: #f8d7da; color: #721c24; }
         </style>
       </head>
       <body>
@@ -442,9 +726,6 @@ const SalesReports = () => {
           <h1>تقرير المبيعات - Chicken One</h1>
           <div class="date-range">${
             summary?.dateRange || "فترة غير محددة"
-          }</div>
-          <div class="view-type">وضع العرض: ${
-            selectedView === "detailed" ? "تفصيلي" : "ملخص"
           }</div>
         </div>
 
@@ -462,12 +743,6 @@ const SalesReports = () => {
               <div class="value">${summary?.totalOrders || "0"}</div>
             </div>
             <div class="summary-item">
-              <div class="label">متوسط قيمة الطلب</div>
-              <div class="value">${
-                summary?.averageOrderValue?.toFixed(2) || "0.00"
-              } ج.م</div>
-            </div>
-            <div class="summary-item">
               <div class="label">طلبات التوصيل</div>
               <div class="value">${summary?.deliveryOrders || "0"}</div>
             </div>
@@ -478,94 +753,106 @@ const SalesReports = () => {
           </div>
         </div>
 
-        ${
-          summary?.topProducts?.length > 0
-            ? `
-          <div class="top-products">
-            <h2>المنتجات الأكثر مبيعاً (أعلى 5)</h2>
-            ${summary.topProducts
-              .map(
-                (product, index) => `
-              <div class="product-item">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <div class="product-rank">${index + 1}</div>
-                  <div>
-                    <strong>${product.name}</strong>
-                    <div style="font-size: 12px; color: #666;">${
-                      product.quantity
-                    } وحدة مباعة</div>
-                  </div>
-                </div>
-                <div>
-                  <strong>${product.revenue.toFixed(2)} ج.م</strong>
-                  <div style="font-size: 12px; color: #666;">
-                    ${(product.revenue / product.quantity).toFixed(
-                      2
-                    )} ج.م لكل وحدة
-                  </div>
-                </div>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-        `
-            : ""
-        }
+        <div class="table-section">
+          <h2>تفاصيل الطلبات</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>رقم الطلب</th>
+                <th>اسم العميل</th>
+                <th>رقم الهاتف</th>
+                <th>نوع الطلب</th>
+                <th>المدينة</th>
+                <th>العنوان</th>
+                <th>الحالة</th>
+                <th>الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${reportData
+                .map((order) => {
+                  const userName = findUserName(order.userId);
+                  const statusClass = `status-${order.status.toLowerCase()}`;
+                  return `
+                    <tr>
+                      <td>${order.orderNumber}</td>
+                      <td>${userName}</td>
+                      <td>${order.location?.phoneNumber || "غير متوفر"}</td>
+                      <td class="${
+                        order.deliveryFee?.fee > 0 ? "delivery" : "pickup"
+                      }">
+                        ${order.deliveryFee?.fee > 0 ? "توصيل" : "استلام"}
+                      </td>
+                      <td>${
+                        order.location?.city?.name ||
+                        order.location?.city ||
+                        "غير متوفر"
+                      }</td>
+                      <td>${order.location?.streetName || "غير متوفر"}</td>
+                      <td>
+                        <span class="status-badge ${statusClass}">
+                          ${
+                            order.status === "Pending"
+                              ? "قيد الانتظار"
+                              : order.status === "Preparing"
+                              ? "قيد التحضير"
+                              : order.status === "Delivered"
+                              ? "تم التوصيل"
+                              : order.status === "Cancelled"
+                              ? "ملغي"
+                              : order.status
+                          }
+                        </span>
+                      </td>
+                      <td><strong>${
+                        order.totalWithFee?.toFixed(2) || "0.00"
+                      } ج.م</strong></td>
+                    </tr>
+                  `;
+                })
+                .join("")}
+              <tr class="total-row">
+                <td colspan="7"><strong>المجموع الكلي:</strong></td>
+                <td>
+                  <strong>${reportData
+                    .reduce((sum, order) => sum + (order.totalWithFee || 0), 0)
+                    .toFixed(2)} ج.م</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         ${
-          selectedView === "detailed" && reportData.length > 0
+          summary?.topProducts && summary.topProducts.length > 0
             ? `
-          <div class="table-section">
-            <h2>تفاصيل المبيعات (${Math.min(20, reportData.length)} عنصر)</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>رقم الطلب</th>
-                  <th>التاريخ والوقت</th>
-                  <th>المنتج</th>
-                  <th>الكمية</th>
-                  <th>سعر الوحدة</th>
-                  <th>الإجمالي</th>
-                  <th>نوع الطلب</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${sortedData
-                  .slice(0, 20)
-                  .map(
-                    (item) => `
+        <div class="table-section">
+          <h2>المنتجات الأكثر مبيعاً</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>اسم المنتج</th>
+                <th>الكمية</th>
+                <th>الإيرادات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${summary.topProducts
+                .map(
+                  (product, index) => `
                   <tr>
-                    <td>#${item.orderId.toString().substring(0, 8)}</td>
-                    <td>${format(
-                      new Date(item.orderDate),
-                      "dd/MM/yyyy HH:mm"
-                    )}</td>
-                    <td>${item.productName}</td>
-                    <td>${item.quantity}</td>
-                    <td>${item.unitPrice.toFixed(2)} ج.م</td>
-                    <td><strong>${item.totalPrice.toFixed(2)} ج.م</strong></td>
-                    <td class="${
-                      item.orderType === "Delivery" ? "delivery" : "pickup"
-                    }">
-                      ${item.orderType === "Delivery" ? "توصيل" : "استلام"}
-                    </td>
+                    <td>${index + 1}</td>
+                    <td>${product.name}</td>
+                    <td>${product.quantity}</td>
+                    <td>${product.revenue?.toFixed(2) || "0.00"} ج.م</td>
                   </tr>
                 `
-                  )
-                  .join("")}
-                <tr class="total-row">
-                  <td colspan="4"><strong>المجموع الكلي:</strong></td>
-                  <td colspan="3">
-                    <strong>${sortedData
-                      .slice(0, 20)
-                      .reduce((sum, item) => sum + item.totalPrice, 0)
-                      .toFixed(2)} ج.م</strong>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
         `
             : ""
         }
@@ -606,7 +893,7 @@ const SalesReports = () => {
   };
 
   const formatCurrency = (amount) => {
-    return `${amount?.toFixed(2)} ج.م`;
+    return `${amount?.toFixed(2) || "0.00"} ج.م`;
   };
 
   if (loading) {
@@ -670,35 +957,6 @@ const SalesReports = () => {
                   فلترة بتاريخ
                 </h3>
               </div>
-
-              <div className="flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedView("detailed")}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    selectedView === "detailed"
-                      ? "bg-[#E41E26] text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  <FaTable className="inline mr-2" />
-                  تفصيلي
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedView("summary")}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    selectedView === "summary"
-                      ? "bg-[#E41E26] text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  <FaChartBar className="inline mr-2" />
-                  ملخص
-                </motion.button>
-              </div>
             </div>
 
             <div
@@ -721,7 +979,6 @@ const SalesReports = () => {
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-[#E41E26] focus:border-transparent outline-none text-right"
                     locale="ar"
                     placeholderText="اختر تاريخ البداية"
-                    isClearable
                   />
                 </div>
               </div>
@@ -743,7 +1000,6 @@ const SalesReports = () => {
                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-[#E41E26] focus:border-transparent outline-none text-right"
                     locale="ar"
                     placeholderText="اختر تاريخ النهاية"
-                    isClearable
                   />
                 </div>
               </div>
@@ -772,368 +1028,286 @@ const SalesReports = () => {
             </div>
           </motion.div>
 
-          {selectedView === "summary" && summary && (
-            <>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
-              >
-                {/* Total Sales Card */}
-                <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm opacity-90">إجمالي المبيعات</p>
-                      <p className="text-2xl font-bold mt-1">
-                        {formatCurrency(summary.totalSales)}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-white/20 rounded-xl">
-                      <FaDollarSign className="text-2xl" />
-                    </div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <span className="opacity-90">عدد الطلبات: </span>
-                    <span className="font-bold">{summary.totalOrders}</span>
-                  </div>
-                </div>
-
-                {/* Average Order Value */}
-                <div className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl p-5 text-white shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm opacity-90">متوسط قيمة الطلب</p>
-                      <p className="text-2xl font-bold mt-1">
-                        {formatCurrency(summary.averageOrderValue)}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-white/20 rounded-xl">
-                      <FaShoppingCart className="text-2xl" />
-                    </div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <span className="opacity-90">قيمة كل طلب في المتوسط</span>
-                  </div>
-                </div>
-
-                {/* Delivery Orders */}
-                <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl p-5 text-white shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm opacity-90">طلبات التوصيل</p>
-                      <p className="text-2xl font-bold mt-1">
-                        {summary.deliveryOrders}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-white/20 rounded-xl">
-                      <FaTruck className="text-2xl" />
-                    </div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <span className="opacity-90">
-                      {summary.totalOrders > 0
-                        ? (
-                            (summary.deliveryOrders / summary.totalOrders) *
-                            100
-                          ).toFixed(1)
-                        : "0.0"}
-                      % من الطلبات
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pickup Orders */}
-                <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-5 text-white shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm opacity-90">طلبات الاستلام</p>
-                      <p className="text-2xl font-bold mt-1">
-                        {summary.pickupOrders}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-white/20 rounded-xl">
-                      <FaStore className="text-2xl" />
-                    </div>
-                  </div>
-                  <div className="mt-3 text-sm">
-                    <span className="opacity-90">
-                      {summary.totalOrders > 0
-                        ? (
-                            (summary.pickupOrders / summary.totalOrders) *
-                            100
-                          ).toFixed(1)
-                        : "0.0"}
-                      % من الطلبات
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-
-              {summary?.topProducts?.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mb-6 shadow-lg"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <FaChartBar className="text-[#E41E26] text-xl" />
-                      <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                        المنتجات الأكثر مبيعاً
-                      </h3>
-                    </div>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      أعلى 5 منتجات حسب الإيرادات
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {summary.topProducts.map((product, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-[#E41E26] to-[#FDB913] flex items-center justify-center text-white font-bold">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-800 dark:text-white">
-                              {product.name}
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {product.quantity} وحدة مباعة
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-gray-800 dark:text-white">
-                            {formatCurrency(product.revenue)}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {product.quantity > 0
-                              ? formatCurrency(
-                                  product.revenue / product.quantity
-                                )
-                              : "0.00"}{" "}
-                            لكل وحدة
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </>
-          )}
-
-          {selectedView === "detailed" &&
-            reportData &&
-            reportData.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg"
-              >
-                <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <FaListAlt className="text-[#E41E26] text-xl" />
-                      <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                        تفاصيل المبيعات
-                      </h3>
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {reportData.length} عنصر طلب • {summary?.totalOrders} طلب
-                    </div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-700/50">
-                      <tr>
-                        <th
-                          className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 cursor-pointer"
-                          onClick={() => handleSort("orderId")}
-                        >
-                          <div className="flex items-center gap-1 justify-end">
-                            رقم الطلب
-                            {sortConfig.key === "orderId" &&
-                              (sortConfig.direction === "asc" ? (
-                                <FaSortAmountUp className="text-[#E41E26]" />
-                              ) : (
-                                <FaSortAmountDown className="text-[#E41E26]" />
-                              ))}
-                          </div>
-                        </th>
-                        <th
-                          className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300 cursor-pointer"
-                          onClick={() => handleSort("orderDate")}
-                        >
-                          <div className="flex items-center gap-1 justify-end">
-                            التاريخ والوقت
-                            {sortConfig.key === "orderDate" &&
-                              (sortConfig.direction === "asc" ? (
-                                <FaSortAmountUp className="text-[#E41E26]" />
-                              ) : (
-                                <FaSortAmountDown className="text-[#E41E26]" />
-                              ))}
-                          </div>
-                        </th>
-                        <th
-                          className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300 cursor-pointer"
-                          onClick={() => handleSort("productName")}
-                        >
-                          <div className="flex items-center gap-1 justify-end">
-                            المنتج
-                            {sortConfig.key === "productName" &&
-                              (sortConfig.direction === "asc" ? (
-                                <FaSortAmountUp className="text-[#E41E26]" />
-                              ) : (
-                                <FaSortAmountDown className="text-[#E41E26]" />
-                              ))}
-                          </div>
-                        </th>
-                        <th
-                          className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300 cursor-pointer"
-                          onClick={() => handleSort("quantity")}
-                        >
-                          <div className="flex items-center gap-1 justify-end">
-                            الكمية
-                            {sortConfig.key === "quantity" &&
-                              (sortConfig.direction === "asc" ? (
-                                <FaSortAmountUp className="text-[#E41E26]" />
-                              ) : (
-                                <FaSortAmountDown className="text-[#E41E26]" />
-                              ))}
-                          </div>
-                        </th>
-                        <th
-                          className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300 cursor-pointer"
-                          onClick={() => handleSort("unitPrice")}
-                        >
-                          <div className="flex items-center gap-1 justify-end">
-                            سعر الوحدة
-                            {sortConfig.key === "unitPrice" &&
-                              (sortConfig.direction === "asc" ? (
-                                <FaSortAmountUp className="text-[#E41E26]" />
-                              ) : (
-                                <FaSortAmountDown className="text-[#E41E26]" />
-                              ))}
-                          </div>
-                        </th>
-                        <th
-                          className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300 cursor-pointer"
-                          onClick={() => handleSort("totalPrice")}
-                        >
-                          <div className="flex items-center gap-1 justify-end">
-                            الإجمالي
-                            {sortConfig.key === "totalPrice" &&
-                              (sortConfig.direction === "asc" ? (
-                                <FaSortAmountUp className="text-[#E41E26]" />
-                              ) : (
-                                <FaSortAmountDown className="text-[#E41E26]" />
-                              ))}
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">
-                          نوع الطلب
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                      {sortedData.slice(0, 20).map((item, index) => (
-                        <tr
-                          key={index}
-                          className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150"
-                        >
-                          <td className="px-4 py-3 text-right font-mono text-sm text-gray-600 dark:text-gray-400">
-                            #{item.orderId.toString().substring(0, 8)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-400">
-                            {format(
-                              new Date(item.orderDate),
-                              "dd/MM/yyyy HH:mm"
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium text-gray-800 dark:text-white">
-                            {item.productName}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-400">
-                            {item.quantity}
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                            {formatCurrency(item.unitPrice)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-[#E41E26] dark:text-[#FDB913]">
-                            {formatCurrency(item.totalPrice)}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span
-                              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
-                                item.orderType === "Delivery"
-                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                  : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                              }`}
-                            >
-                              {item.orderType === "Delivery" ? (
-                                <>
-                                  <FaTruck className="text-xs" />
-                                  توصيل
-                                </>
-                              ) : (
-                                <>
-                                  <FaStore className="text-xs" />
-                                  استلام
-                                </>
-                              )}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
-                      <tr>
-                        <td
-                          colSpan="4"
-                          className="px-4 py-3 text-right font-bold text-gray-800 dark:text-white"
-                        >
-                          المجموع الكلي:
-                        </td>
-                        <td colSpan="3" className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <FaDollarSign className="text-[#E41E26]" />
-                            <span className="text-xl font-bold text-[#E41E26] dark:text-[#FDB913]">
-                              {formatCurrency(
-                                sortedData
-                                  .slice(0, 20)
-                                  .reduce(
-                                    (sum, item) => sum + item.totalPrice,
-                                    0
-                                  )
-                              )}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-
-                {reportData.length > 20 && (
-                  <div className="px-4 sm:px-6 py-3 border-t border-gray-200 dark:border-gray-700 text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      عرض {Math.min(20, reportData.length)} من أصل{" "}
-                      {reportData.length} عنصر طلب
+          {/* Summary Cards */}
+          {summary && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+            >
+              {/* Total Sales Card */}
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">إجمالي المبيعات</p>
+                    <p className="text-2xl font-bold mt-1">
+                      {formatCurrency(summary.totalSales)}
                     </p>
                   </div>
-                )}
-              </motion.div>
-            )}
+                  <div className="p-3 bg-white/20 rounded-xl">
+                    <FaDollarSign className="text-2xl" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Orders Card */}
+              <div className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-2xl p-5 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">إجمالي الطلبات</p>
+                    <p className="text-2xl font-bold mt-1">
+                      {summary.totalOrders}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white/20 rounded-xl">
+                    <FaShoppingCart className="text-2xl" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Orders */}
+              <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl p-5 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">طلبات التوصيل</p>
+                    <p className="text-2xl font-bold mt-1">
+                      {summary.deliveryOrders}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white/20 rounded-xl">
+                    <FaTruck className="text-2xl" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Pickup Orders */}
+              <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl p-5 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">طلبات الاستلام</p>
+                    <p className="text-2xl font-bold mt-1">
+                      {summary.pickupOrders}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white/20 rounded-xl">
+                    <FaStore className="text-2xl" />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Top Products Section */}
+          {summary?.topProducts && summary.topProducts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mb-6 shadow-lg"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FaChartBar className="text-[#E41E26] text-xl" />
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+                    المنتجات الأكثر مبيعاً
+                  </h3>
+                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  أعلى 5 منتجات حسب الإيرادات
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {summary.topProducts.map((product, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-[#E41E26] to-[#FDB913] flex items-center justify-center text-white font-bold">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-white">
+                          {product.name}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {product.quantity} وحدة مباعة
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-gray-800 dark:text-white">
+                        {formatCurrency(product.revenue)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Orders Table */}
+          {reportData && reportData.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg"
+            >
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <FaListAlt className="text-[#E41E26] text-xl" />
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+                      تفاصيل الطلبات
+                    </h3>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                        رقم الطلب
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                        اسم العميل
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                        رقم الهاتف
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                        نوع الطلب
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                        المدينة
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                        الحالة
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                        الإجمالي
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">
+                        الإجراءات
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {reportData.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150"
+                      >
+                        <td className="px-4 py-3 text-center font-mono text-sm text-gray-800 dark:text-white font-bold">
+                          {order.orderNumber}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">
+                          {findUserName(order.userId)}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">
+                          {order.location?.phoneNumber || "غير متوفر"}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`inline-flex items-center justify-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                              order.deliveryFee?.fee > 0
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                            }`}
+                          >
+                            {order.deliveryFee?.fee > 0 ? (
+                              <>
+                                <FaTruck className="text-xs" />
+                                توصيل
+                              </>
+                            ) : (
+                              <>
+                                <FaStore className="text-xs" />
+                                استلام
+                              </>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">
+                          {order.location?.streetName || "غير متوفر"}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              order.status === "Pending"
+                                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+                                : order.status === "Preparing"
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                : order.status === "Delivered"
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                : order.status === "Cancelled"
+                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                            }`}
+                          >
+                            {order.status === "Pending"
+                              ? "قيد الانتظار"
+                              : order.status === "Preparing"
+                              ? "قيد التحضير"
+                              : order.status === "Delivered"
+                              ? "تم التوصيل"
+                              : order.status === "Cancelled"
+                              ? "ملغي"
+                              : order.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center font-bold text-[#E41E26] dark:text-[#FDB913]">
+                          {formatCurrency(order.totalWithFee)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleViewOrderDetails(order.id)}
+                            disabled={loadingDetails}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-300 mx-auto"
+                          >
+                            {loadingDetails &&
+                            selectedOrder?.id === order.id ? (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <FaEye />
+                            )}
+                            عرض التفاصيل
+                          </motion.button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
+                    <tr>
+                      <td
+                        colSpan="7"
+                        className="px-4 py-3 text-center font-bold text-gray-800 dark:text-white"
+                      >
+                        المجموع الكلي:
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-xl font-bold text-[#E41E26] dark:text-[#FDB913]">
+                          {formatCurrency(
+                            reportData.reduce(
+                              (sum, order) => sum + (order.totalWithFee || 0),
+                              0
+                            )
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </motion.div>
+          )}
 
           {(!reportData || reportData.length === 0) && (
             <motion.div
@@ -1168,16 +1342,22 @@ const SalesReports = () => {
                 <FaPrint className="text-2xl" />
                 <div className="text-right">
                   <p className="font-bold">طباعة التقرير</p>
-                  <p className="text-sm opacity-90">
-                    طباعة التقرير الحالي (وضع{" "}
-                    {selectedView === "detailed" ? "تفصيلي" : "ملخص"})
-                  </p>
+                  <p className="text-sm opacity-90">طباعة التقرير الحالي</p>
                 </div>
               </motion.button>
             </motion.div>
           )}
         </div>
       </motion.div>
+
+      {/* Order Details Modal */}
+      {selectedOrder && (
+        <OrderDetailsModal
+          order={orderDetails || selectedOrder}
+          onClose={handleCloseOrderDetails}
+          users={users}
+        />
+      )}
     </div>
   );
 };

@@ -5,7 +5,6 @@ import {
   FaUser,
   FaSignOutAlt,
   FaMapMarkerAlt,
-  FaTrash,
   FaStar,
   FaShoppingCart,
   FaClipboardList,
@@ -29,7 +28,6 @@ import {
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axiosInstance from "../api/axiosInstance";
-import Swal from "sweetalert2";
 import logo from "../assets/logo.png";
 import logoDark from "../assets/logo.png";
 
@@ -61,48 +59,48 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
     window.location.reload();
   };
 
-  const handleDeleteAccount = async () => {
-    setIsSidebarOpen(false);
-    setIsDropdownOpen(false);
+  // const handleDeleteAccount = async () => {
+  //   setIsSidebarOpen(false);
+  //   setIsDropdownOpen(false);
 
-    const result = await Swal.fire({
-      title: "هل أنت متأكد؟",
-      text: "هل أنت متأكد أنك تريد حذف حسابك؟ لا يمكن التراجع عن هذا الإجراء!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#E41E26",
-      cancelButtonColor: "#6B7280",
-      confirmButtonText: "نعم، احذف الحساب!",
-      cancelButtonText: "إلغاء",
-      reverseButtons: true,
-    });
+  //   const result = await Swal.fire({
+  //     title: "هل أنت متأكد؟",
+  //     text: "هل أنت متأكد أنك تريد حذف حسابك؟ لا يمكن التراجع عن هذا الإجراء!",
+  //     icon: "warning",
+  //     showCancelButton: true,
+  //     confirmButtonColor: "#E41E26",
+  //     cancelButtonColor: "#6B7280",
+  //     confirmButtonText: "نعم، احذف الحساب!",
+  //     cancelButtonText: "إلغاء",
+  //     reverseButtons: true,
+  //   });
 
-    if (result.isConfirmed) {
-      try {
-        await axiosInstance.delete("/api/Account/DeleteAccount");
+  //   if (result.isConfirmed) {
+  //     try {
+  //       await axiosInstance.delete("/api/Account/DeleteAccount");
 
-        Swal.fire({
-          title: "تم الحذف!",
-          text: "تم حذف حسابك بنجاح.",
-          icon: "success",
-          confirmButtonColor: "#E41E26",
-        });
+  //       Swal.fire({
+  //         title: "تم الحذف!",
+  //         text: "تم حذف حسابك بنجاح.",
+  //         icon: "success",
+  //         confirmButtonColor: "#E41E26",
+  //       });
 
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        navigate("/");
-        window.location.reload();
-      } catch (error) {
-        console.error("فشل في حذف الحساب", error);
-        Swal.fire({
-          title: "خطأ!",
-          text: "فشل في حذف الحساب. يرجى المحاولة مرة أخرى.",
-          icon: "error",
-          confirmButtonColor: "#E41E26",
-        });
-      }
-    }
-  };
+  //       localStorage.removeItem("token");
+  //       localStorage.removeItem("user");
+  //       navigate("/");
+  //       window.location.reload();
+  //     } catch (error) {
+  //       console.error("فشل في حذف الحساب", error);
+  //       Swal.fire({
+  //         title: "خطأ!",
+  //         text: "فشل في حذف الحساب. يرجى المحاولة مرة أخرى.",
+  //         icon: "error",
+  //         confirmButtonColor: "#E41E26",
+  //       });
+  //     }
+  //   }
+  // };
 
   const handleAuthClick = (path) => {
     setIsDropdownOpen(false);
@@ -791,7 +789,7 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
                   </motion.div>
 
                   <div className="border-t border-gray-200 dark:border-gray-700 my-4 pt-4">
-                    <motion.div
+                    {/* <motion.div
                       whileHover={{ scale: 1.02, x: -4 }}
                       whileTap={{ scale: 0.98 }}
                     >
@@ -805,7 +803,7 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
                         </div>
                         <span className="text-lg">حذف الحساب</span>
                       </button>
-                    </motion.div>
+                    </motion.div> */}
 
                     <motion.div
                       whileHover={{ scale: 1.02, x: -4 }}
