@@ -862,10 +862,42 @@ export default function MyOrders() {
                 )}
               </div>
 
-              {/* Date Range Filter */}
+              {/* Date Range Filter - Modified for mobile */}
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-4 items-end">
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-4 sm:space-y-0 sm:flex sm:gap-4 sm:items-end">
+                  {/* على الشاشات الصغيرة: تاريخ البداية يأخذ العرض كامل */}
+                  <div className="block sm:hidden space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        تاريخ البداية
+                      </label>
+                      <input
+                        type="date"
+                        value={dateRange.start}
+                        onChange={(e) => {
+                          handleDateRangeChange("start", e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#E41E26] focus:border-transparent transition-all duration-200 text-sm sm:text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        تاريخ النهاية
+                      </label>
+                      <input
+                        type="date"
+                        value={dateRange.end}
+                        onChange={(e) => {
+                          handleDateRangeChange("end", e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-black focus:ring-2 focus:ring-[#E41E26] focus:border-transparent transition-all duration-200 text-sm sm:text-base dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="hidden sm:flex-1 sm:grid sm:grid-cols-2 sm:gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         تاريخ البداية
@@ -897,7 +929,7 @@ export default function MyOrders() {
                   </div>
 
                   {/* Clear Buttons */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-2 sm:pt-0">
                     {(dateRange.start ||
                       dateRange.end ||
                       (isAdminOrRestaurantOrBranch && selectedUserId) ||
