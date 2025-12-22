@@ -21,6 +21,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaSyncAlt,
+  FaPrint,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 import axiosInstance from "../api/axiosInstance";
@@ -317,6 +318,119 @@ export default function MyOrders() {
     }
   };
 
+  const handleCancelOrder = async (orderId, e) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    const result = await Swal.fire({
+      title: "هل أنت متأكد؟",
+      text: "هل تريد إلغاء هذا الطلب؟",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#E41E26",
+      cancelButtonColor: "#6B7280",
+      confirmButtonText: "نعم، إلغِه!",
+      cancelButtonText: "لا",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const token = localStorage.getItem("token");
+
+        await axiosInstance.put(
+          `/api/Orders/UpdateStatus/${orderId}`,
+          { orderStatus: "Cancelled" },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        setOrders(
+          orders.map((order) =>
+            order.id === orderId
+              ? {
+                  ...order,
+                  status: "Cancelled",
+                }
+              : order
+          )
+        );
+
+        if (selectedOrder?.id === orderId && orderDetails) {
+          setOrderDetails((prev) => ({
+            ...prev,
+            status: "Cancelled",
+          }));
+        }
+
+        Swal.fire({
+          title: "تم الإلغاء!",
+          text: "تم إلغاء الطلب بنجاح.",
+          icon: "success",
+          timer: 2500,
+          showConfirmButton: false,
+        });
+
+        setTimeout(() => {
+          fetchOrders();
+        }, 500);
+      } catch (error) {
+        console.error("Error cancelling order:", error);
+        Swal.fire({
+          icon: "error",
+          title: "خطأ",
+          text: "فشل إلغاء الطلب. يرجى المحاولة مرة أخرى.",
+          confirmButtonColor: "#E41E26",
+          timer: 2500,
+          showConfirmButton: false,
+        });
+      }
+    }
+  };
+
+  const handleReprintOrder = async (orderId, e) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await axiosInstance.get(
+        `/api/Orders/ReprintOrder/${orderId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        Swal.fire({
+          icon: "success",
+          title: "تم بنجاح!",
+          text: "تم إرسال طلب إعادة الطباعة بنجاح",
+          timer: 2500,
+          showConfirmButton: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error reprinting order:", error);
+      Swal.fire({
+        icon: "error",
+        title: "خطأ",
+        text: "فشل إرسال طلب إعادة الطباعة. يرجى المحاولة مرة أخرى.",
+        confirmButtonColor: "#E41E26",
+        timer: 2500,
+        showConfirmButton: false,
+      });
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -541,67 +655,6 @@ export default function MyOrders() {
         return <FaTimesCircle className="text-red-500 w-4 h-4" />;
       default:
         return <FaClock className="text-gray-500 w-4 h-4" />;
-    }
-  };
-
-  const handleCancelOrder = async (orderId, e) => {
-    e.stopPropagation();
-
-    const result = await Swal.fire({
-      title: "هل أنت متأكد؟",
-      text: "هل تريد إلغاء هذا الطلب؟",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#E41E26",
-      cancelButtonColor: "#6B7280",
-      confirmButtonText: "نعم، إلغِه!",
-      cancelButtonText: "لا",
-    });
-
-    if (result.isConfirmed) {
-      try {
-        localStorage.getItem("token");
-
-        setOrders(
-          orders.map((order) =>
-            order.id === orderId
-              ? {
-                  ...order,
-                  status: "Cancelled",
-                }
-              : order
-          )
-        );
-
-        if (selectedOrder?.id === orderId && orderDetails) {
-          setOrderDetails((prev) => ({
-            ...prev,
-            status: "Cancelled",
-          }));
-        }
-
-        Swal.fire({
-          title: "تم الإلغاء!",
-          text: "تم إلغاء الطلب.",
-          icon: "success",
-          timer: 2500,
-          showConfirmButton: false,
-        });
-
-        setTimeout(() => {
-          fetchOrders();
-        }, 500);
-      } catch (error) {
-        console.error("Error cancelling order:", error);
-        Swal.fire({
-          icon: "error",
-          title: "خطأ",
-          text: "فشل إلغاء الطلب.",
-          confirmButtonColor: "#E41E26",
-          timer: 2500,
-          showConfirmButton: false,
-        });
-      }
     }
   };
 
@@ -1201,8 +1254,9 @@ export default function MyOrders() {
                             </div>
                           </div>
 
-                          {isAdminOrRestaurantOrBranch && (
-                            <div className="flex gap-2 mb-3">
+                          {/* Buttons Section */}
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {isAdminOrRestaurantOrBranch && (
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
@@ -1215,22 +1269,35 @@ export default function MyOrders() {
                                 <FaSyncAlt size={10} />
                                 تغيير الحالة
                               </motion.button>
-                              {order.status !== "Cancelled" &&
-                                order.status !== "Rejected" && (
-                                  <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={(e) =>
-                                      handleCancelOrder(order.id, e)
-                                    }
-                                    className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-600 transition-colors"
-                                  >
-                                    <FaTrash size={10} />
-                                    إلغاء الطلب
-                                  </motion.button>
-                                )}
-                            </div>
-                          )}
+                            )}
+
+                            {order.status !== "Cancelled" &&
+                              order.status !== "Delivered" && (
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={(e) =>
+                                    handleCancelOrder(order.id, e)
+                                  }
+                                  className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-600 transition-colors"
+                                >
+                                  <FaTrash size={10} />
+                                  إلغاء الطلب
+                                </motion.button>
+                              )}
+
+                            {isAdminOrRestaurantOrBranch && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => handleReprintOrder(order.id, e)}
+                                className="flex items-center gap-1 bg-gradient-to-r from-green-500 to-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:from-green-600 hover:to-green-700 transition-all"
+                              >
+                                <FaPrint size={10} />
+                                إعادة طباعة
+                              </motion.button>
+                            )}
+                          </div>
 
                           {/* Customer/Delivery Info */}
                           <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
@@ -1927,8 +1994,8 @@ export default function MyOrders() {
                       )}
 
                       {/* Admin Actions */}
-                      {isAdminOrRestaurantOrBranch && (
-                        <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">
+                        {isAdminOrRestaurantOrBranch && (
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -1944,22 +2011,37 @@ export default function MyOrders() {
                             <FaSyncAlt className="w-3 h-3 sm:w-4 sm:h-4" />
                             تغيير حالة الطلب
                           </motion.button>
-                          {orderDetails.status !== "Cancelled" &&
-                            orderDetails.status !== "Rejected" && (
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={(e) =>
-                                  handleCancelOrder(orderDetails.id, e)
-                                }
-                                className="flex-1 flex items-center justify-center gap-2 bg-red-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm sm:text-base"
-                              >
-                                <FaTrash className="w-3 h-3 sm:w-4 sm:h-4" />
-                                إلغاء الطلب
-                              </motion.button>
-                            )}
-                        </div>
-                      )}
+                        )}
+
+                        {orderDetails.status !== "Cancelled" &&
+                          orderDetails.status !== "Delivered" && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={(e) =>
+                                handleCancelOrder(orderDetails.id, e)
+                              }
+                              className="flex-1 flex items-center justify-center gap-2 bg-red-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm sm:text-base"
+                            >
+                              <FaTrash className="w-3 h-3 sm:w-4 sm:h-4" />
+                              إلغاء الطلب
+                            </motion.button>
+                          )}
+
+                        {isAdminOrRestaurantOrBranch && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={(e) =>
+                              handleReprintOrder(orderDetails.id, e)
+                            }
+                            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all text-sm sm:text-base"
+                          >
+                            <FaPrint className="w-3 h-3 sm:w-4 sm:h-4" />
+                            إعادة طباعة
+                          </motion.button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-8 sm:py-12">
