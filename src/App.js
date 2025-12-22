@@ -52,6 +52,7 @@ function App() {
     "/reviews",
     "/admin/users",
     "/admin/branches",
+    "/auth",
   ];
 
   const shouldShowNavbarFooter = !hideNavbarFooterPaths.includes(
@@ -111,6 +112,7 @@ function App() {
           <Route path="/branches" element={<Branches />} />
           <Route path="/admin/item-offers" element={<ItemOffersManagement />} />
           <Route path="/admin/reports" element={<SalesReports />} />
+          <Route path="/auth" element={<AuthPage />} />
         </Routes>
       </main>
 

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { loginUser } from "../redux/slices/loginSlice";
+import { loginUser, handleGoogleCallback } from "../redux/slices/loginSlice";
 import { registerUser } from "../redux/slices/registerSlice";
 import { useNavigate, useLocation } from "react-router-dom";
 import axiosInstance from "../api/axiosInstance";
@@ -18,7 +18,10 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { isLoading: loginLoading } = useSelector((state) => state.login);
+  const { isLoading: loginLoading, isGoogleLoading } = useSelector(
+    (state) => state.login
+  );
+
   const { isLoading: registerLoading } = useSelector((state) => state.register);
 
   const [activeTab, setActiveTab] = useState(
@@ -54,17 +57,60 @@ export default function AuthPage() {
   // Forget password state
   const [forgetEmail, setForgetEmail] = useState("");
 
-  const handleTabChange = (tab) => {
+  const extractTokenFromUrl = useCallback(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith("#token=")) {
+      return hash.replace("#token=", "");
+    }
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get("token");
+  }, []);
+
+  useEffect(() => {
+    const token = extractTokenFromUrl();
+
+    if (token) {
+      window.history.replaceState(null, "", "/auth");
+
+      const processGoogleLogin = async () => {
+        try {
+          const result = await dispatch(handleGoogleCallback(token)).unwrap();
+
+          if (result?.token) {
+            setLoggedUserName(result.firstName || result.email || "مستخدم");
+            setShowWelcome(true);
+
+            setTimeout(() => {
+              setShowWelcome(false);
+              navigate("/");
+            }, 3000);
+          }
+        } catch (error) {
+          console.error("Google login error:", error);
+          Swal.fire({
+            icon: "error",
+            title: "خطأ في تسجيل الدخول",
+            text: "حدث خطأ أثناء تسجيل الدخول بـ Google. يرجى المحاولة مرة أخرى.",
+            confirmButtonText: "حاول مرة أخرى",
+          });
+        }
+      };
+
+      processGoogleLogin();
+    }
+  }, [dispatch, navigate, extractTokenFromUrl]);
+
+  const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);
-  };
+  }, []);
 
-  const handleLoginChange = (name, value) => {
-    setLoginData({ ...loginData, [name]: value });
-  };
+  const handleLoginChange = useCallback((name, value) => {
+    setLoginData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
-  const handleRegisterChange = (name, value) => {
-    setRegisterData({ ...registerData, [name]: value });
-  };
+  const handleRegisterChange = useCallback((name, value) => {
+    setRegisterData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
   // Login handler
   const handleLogin = async (e) => {
@@ -82,26 +128,27 @@ export default function AuthPage() {
     formData.append("Email", loginData.email);
     formData.append("Password", loginData.password);
 
-    const res = await dispatch(loginUser(formData));
-    const data = res.payload;
+    try {
+      const res = await dispatch(loginUser(formData)).unwrap();
 
-    if (data?.token) {
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data));
+      if (res?.token) {
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("user", JSON.stringify(res));
 
-      setLoggedUserName(data.firstName || "مستخدم");
-      setShowWelcome(true);
+        setLoggedUserName(res.firstName || res.email || "مستخدم");
+        setShowWelcome(true);
 
+        Swal.close();
+
+        setTimeout(() => {
+          setShowWelcome(false);
+          navigate("/");
+        }, 3000);
+      }
+    } catch (error) {
       Swal.close();
 
-      setTimeout(() => {
-        setShowWelcome(false);
-        navigate("/");
-      }, 3000);
-    } else {
-      Swal.close();
-
-      const errorMessage = ErrorTranslator.translate(res.payload || res.error);
+      const errorMessage = ErrorTranslator.translate(error);
 
       Swal.fire({
         icon: "error",
@@ -109,6 +156,24 @@ export default function AuthPage() {
         html: errorMessage,
         showConfirmButton: false,
         timer: 2500,
+      });
+    }
+  };
+
+  // Google Login handler
+  const handleGoogleLogin = async () => {
+    try {
+      const returnUrl = encodeURIComponent(`${window.location.origin}/auth`);
+      const googleAuthUrl = `https://restaurant-template.runasp.net/api/account/login/google?returnUrl=${returnUrl}`;
+
+      window.location.href = googleAuthUrl;
+    } catch (error) {
+      console.error("Google login redirect error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "خطأ في الاتصال",
+        text: "حدث خطأ أثناء التوجيه إلى Google. يرجى المحاولة مرة أخرى.",
+        confirmButtonText: "حاول مرة أخرى",
       });
     }
   };
@@ -346,10 +411,12 @@ export default function AuthPage() {
           password={loginData.password}
           showPassword={showPassword}
           isLoading={loginLoading}
+          isGoogleLoading={isGoogleLoading}
           onEmailChange={(value) => handleLoginChange("email", value)}
           onPasswordChange={(value) => handleLoginChange("password", value)}
           onToggleShowPassword={() => setShowPassword(!showPassword)}
           onForgotPassword={() => setForgetMode(true)}
+          onGoogleLogin={handleGoogleLogin}
           onSubmit={handleLogin}
         />
       ) : (

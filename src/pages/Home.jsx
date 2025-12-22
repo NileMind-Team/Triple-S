@@ -49,6 +49,7 @@ const Home = () => {
   const [totalPages, setTotalPages] = useState(1);
   // eslint-disable-next-line no-unused-vars
   const [pageSize, setPageSize] = useState(8);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
 
   const categoriesContainerRef = useRef(null);
   const categoriesSectionRef = useRef(null);
@@ -57,6 +58,36 @@ const Home = () => {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const navigate = useNavigate();
+
+  // Function to preload images
+  const preloadImages = (imageUrls) => {
+    return new Promise((resolve) => {
+      if (imageUrls.length === 0) {
+        resolve();
+        return;
+      }
+
+      let loadedCount = 0;
+      const totalImages = imageUrls.length;
+
+      imageUrls.forEach((src) => {
+        const img = new Image();
+        img.onload = () => {
+          loadedCount++;
+          if (loadedCount === totalImages) {
+            resolve();
+          }
+        };
+        img.onerror = () => {
+          loadedCount++;
+          if (loadedCount === totalImages) {
+            resolve();
+          }
+        };
+        img.src = src;
+      });
+    });
+  };
 
   // Skeleton Loading Component
   const ProductSkeleton = ({ count = 8 }) => {
@@ -214,6 +245,7 @@ const Home = () => {
   const fetchProducts = async () => {
     try {
       setProductsLoading(true);
+      setImagesLoaded(false);
 
       const requestBody = {
         pageNumber: currentPage,
@@ -288,6 +320,11 @@ const Home = () => {
             )
         );
       }
+
+      const imageUrls = transformedProducts.map((product) => product.image);
+      await preloadImages(imageUrls);
+      setImagesLoaded(true);
+      setProductsLoading(false);
     } catch (error) {
       console.error("Error fetching products:", error);
       Swal.fire({
@@ -299,7 +336,7 @@ const Home = () => {
       });
       setProducts([]);
       setFilteredProducts([]);
-    } finally {
+      setImagesLoaded(true);
       setProductsLoading(false);
     }
   };
@@ -1122,29 +1159,39 @@ const Home = () => {
 
   const scrollToCategories = () => {
     if (categoriesSectionRef.current) {
-      categoriesSectionRef.current.scrollIntoView({
+      const element = categoriesSectionRef.current;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - 100;
+
+      window.scrollTo({
+        top: offsetPosition,
         behavior: "smooth",
-        block: "start",
       });
     }
   };
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
-    scrollToCategories();
+    setTimeout(() => {
+      scrollToCategories();
+    }, 100);
   };
 
   const handlePrevPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
-      scrollToCategories();
+      setTimeout(() => {
+        scrollToCategories();
+      }, 100);
     }
   };
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
-      scrollToCategories();
+      setTimeout(() => {
+        scrollToCategories();
+      }, 100);
     }
   };
 
@@ -1238,7 +1285,9 @@ const Home = () => {
                 onClick={() => {
                   setSelectedCategory(category.id);
                   setCurrentPage(1);
-                  scrollToCategories();
+                  setTimeout(() => {
+                    scrollToCategories();
+                  }, 50);
                 }}
                 className={`flex-shrink-0 flex items-center gap-2 px-3 md:px-4 py-2 md:py-3 rounded-xl font-semibold text-sm md:text-base ${
                   selectedCategory === category.id
@@ -1272,9 +1321,9 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Products Grid */}
+      {/* Products Grid - Show skeleton until both data and images are loaded */}
       <div className="relative z-10 w-full">
-        {productsLoading ? (
+        {productsLoading || !imagesLoaded ? (
           <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4 md:py-6 w-full">
             <ProductSkeleton count={pageSize} />
           </div>
@@ -1296,7 +1345,9 @@ const Home = () => {
                 onClick={() => {
                   setSelectedCategory("all");
                   setCurrentPage(1);
-                  scrollToCategories();
+                  setTimeout(() => {
+                    scrollToCategories();
+                  }, 50);
                 }}
                 className="bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white px-6 py-3 rounded-xl font-semibold shadow-lg text-sm md:text-base"
               >
@@ -1315,15 +1366,13 @@ const Home = () => {
                   key={`${product.id}-${currentPage}`}
                   className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700 cursor-pointer w-full relative min-h-[180px] ${
                     !product.isActive ? "opacity-70" : ""
-                  } ${isProductCategoryDisabled(product) ? "opacity-80" : ""} ${
-                    productsLoading ? "opacity-50" : ""
-                  }`}
+                  } ${isProductCategoryDisabled(product) ? "opacity-80" : ""}`}
                   onClick={(e) => {
                     const isButtonClick =
                       e.target.closest("button") ||
                       e.target.closest(".no-product-details");
 
-                    if (!isButtonClick && !productsLoading) {
+                    if (!isButtonClick) {
                       handleProductDetails(product);
                     }
                   }}
@@ -1402,6 +1451,7 @@ const Home = () => {
                               src={product.image}
                               alt={product.name}
                               className="w-full h-full object-cover"
+                              loading="lazy"
                             />
                           </div>
                         </div>
@@ -1450,21 +1500,16 @@ const Home = () => {
                               handleAddToCart(product, e);
                             }
                           }}
-                          disabled={
-                            !isProductAvailableForCart(product) ||
-                            productsLoading
-                          }
+                          disabled={!isProductAvailableForCart(product)}
                           className={`flex-1 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs no-product-details ${
-                            isProductAvailableForCart(product) &&
-                            !productsLoading
+                            isProductAvailableForCart(product)
                               ? "bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white"
                               : "bg-gray-400 text-gray-200 cursor-not-allowed"
                           }`}
                         >
                           <FaShoppingCart className="w-3.5 h-3.5" />
                           <span>
-                            {!isProductAvailableForCart(product) ||
-                            productsLoading
+                            {!isProductAvailableForCart(product)
                               ? "غير متوفر"
                               : "أضف إلى السلة"}
                           </span>
@@ -1473,14 +1518,9 @@ const Home = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            !productsLoading && handleProductDetails(product);
+                            handleProductDetails(product);
                           }}
-                          disabled={productsLoading}
-                          className={`flex-1 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs no-product-details ${
-                            !productsLoading
-                              ? "bg-gradient-to-r from-gray-600 to-gray-800 text-white"
-                              : "bg-gray-400 text-gray-200 cursor-not-allowed"
-                          }`}
+                          className="flex-1 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 text-xs no-product-details bg-gradient-to-r from-gray-600 to-gray-800 text-white"
                         >
                           <FaEye className="w-3.5 h-3.5" />
                           <span>عرض التفاصيل</span>
@@ -1510,6 +1550,7 @@ const Home = () => {
                         src={product.image}
                         alt={product.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     </div>
 
@@ -1567,21 +1608,16 @@ const Home = () => {
                               handleAddToCart(product, e);
                             }
                           }}
-                          disabled={
-                            !isProductAvailableForCart(product) ||
-                            productsLoading
-                          }
+                          disabled={!isProductAvailableForCart(product)}
                           className={`flex-1 py-2 sm:py-2.5 rounded-xl font-semibold flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm no-product-details ${
-                            isProductAvailableForCart(product) &&
-                            !productsLoading
+                            isProductAvailableForCart(product)
                               ? "bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white"
                               : "bg-gray-400 text-gray-200 cursor-not-allowed"
                           }`}
                         >
                           <FaShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                           <span className="xs:hidden">
-                            {!isProductAvailableForCart(product) ||
-                            productsLoading
+                            {!isProductAvailableForCart(product)
                               ? "غير متوفر"
                               : "أضف إلى السلة"}
                           </span>
@@ -1590,14 +1626,9 @@ const Home = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            !productsLoading && handleProductDetails(product);
+                            handleProductDetails(product);
                           }}
-                          disabled={productsLoading}
-                          className={`flex-1 py-2 sm:py-2.5 rounded-xl font-semibold flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm no-product-details ${
-                            !productsLoading
-                              ? "bg-gradient-to-r from-gray-600 to-gray-800 text-white"
-                              : "bg-gray-400 text-gray-200 cursor-not-allowed"
-                          }`}
+                          className="flex-1 py-2 sm:py-2.5 rounded-xl font-semibold flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm no-product-details bg-gradient-to-r from-gray-600 to-gray-800 text-white"
                         >
                           <FaEye className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                           <span className="xs:hidden">عرض التفاصيل</span>
