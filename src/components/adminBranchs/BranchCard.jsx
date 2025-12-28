@@ -16,7 +16,30 @@ const BranchCard = ({
   onEdit,
   onToggleActive,
   getPhoneTypeArabic,
+  adjustTimeFromBackend,
 }) => {
+  const convertTo12HourFormat = (time24) => {
+    if (!time24) return "";
+
+    const adjustedTime = adjustTimeFromBackend
+      ? adjustTimeFromBackend(time24)
+      : time24;
+
+    const [hours, minutes] = adjustedTime.split(":").map(Number);
+
+    if (isNaN(hours) || isNaN(minutes)) return adjustedTime;
+
+    const period = hours >= 12 ? "م" : "ص";
+    const hours12 = hours % 12 || 12;
+
+    return `${hours12.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")} ${period}`;
+  };
+
+  const displayOpeningTime = convertTo12HourFormat(branch.openingTime);
+  const displayClosingTime = convertTo12HourFormat(branch.closingTime);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -70,7 +93,7 @@ const BranchCard = ({
               <div className="flex items-center gap-2">
                 <FaClock className="text-[#E41E26] flex-shrink-0 text-xs sm:text-sm" />
                 <span>
-                  {branch.openingTime} - {branch.closingTime}
+                  {displayOpeningTime} - {displayClosingTime}
                 </span>
               </div>
               {branch.city && (

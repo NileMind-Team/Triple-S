@@ -13,6 +13,93 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { translateErrorMessageAdminBranches } from "../utils/ErrorTranslator";
 
+const adjustTimeForBackend = (timeString) => {
+  if (!timeString) return "";
+
+  const convert12to24 = (time12) => {
+    if (!time12) return "";
+
+    const time = time12.trim();
+    let hours, minutes, period;
+
+    if (time.includes("ص") || time.includes("م")) {
+      const match = time.match(/(\d{1,2}):(\d{2})\s*(ص|م)/);
+      if (match) {
+        hours = parseInt(match[1]);
+        minutes = parseInt(match[2]);
+        period = match[3];
+      }
+    } else if (time.includes("AM") || time.includes("PM")) {
+      const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (match) {
+        hours = parseInt(match[1]);
+        minutes = parseInt(match[2]);
+        period = match[3].toUpperCase() === "AM" ? "ص" : "م";
+      }
+    } else {
+      const [h, m] = time.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) {
+        return time;
+      }
+    }
+
+    if (isNaN(hours) || isNaN(minutes)) return "";
+
+    if (period === "م" && hours < 12) {
+      hours += 12;
+    } else if (period === "ص" && hours === 12) {
+      hours = 0;
+    }
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
+  const time24 = convert12to24(timeString);
+  if (!time24) return "";
+
+  const [hours, minutes] = time24.split(":").map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  date.setHours(date.getHours() - 2);
+
+  return `${date.getHours().toString().padStart(2, "0")}:${date
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+const adjustTimeFromBackend = (timeString) => {
+  if (!timeString) return "";
+
+  const [hours, minutes] = timeString.split(":").map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+
+  date.setHours(date.getHours() + 2);
+
+  return `${date.getHours().toString().padStart(2, "0")}:${date
+    .getMinutes()
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+const convert24To12HourFormat = (time24) => {
+  if (!time24) return "";
+
+  const [hours, minutes] = time24.split(":").map(Number);
+
+  if (isNaN(hours) || isNaN(minutes)) return time24;
+
+  const period = hours >= 12 ? "م" : "ص";
+  const hours12 = hours % 12 || 12;
+
+  return `${hours12.toString().padStart(2, "0")}:${minutes
+    .toString()
+    .padStart(2, "0")} ${period}`;
+};
+
 const convertErrorObjectToText = (errorMessages) => {
   if (!errorMessages || typeof errorMessages !== "object") {
     return "حدث خطأ غير معروف";
@@ -351,14 +438,21 @@ export default function AdminBranches() {
   };
 
   const handleEdit = (branch) => {
+    const openingTime24 = branch.openingTime
+      ? adjustTimeFromBackend(branch.openingTime)
+      : "";
+    const closingTime24 = branch.closingTime
+      ? adjustTimeFromBackend(branch.closingTime)
+      : "";
+
     setFormData({
       name: branch.name || "",
       email: branch.email || "",
       address: branch.address || "",
       locationUrl: branch.locationUrl || "",
       status: branch.status || "Open",
-      openingTime: branch.openingTime || "",
-      closingTime: branch.closingTime || "",
+      openingTime: convert24To12HourFormat(openingTime24),
+      closingTime: convert24To12HourFormat(closingTime24),
       isActive: branch.isActive !== undefined ? branch.isActive : true,
       cityId: branch.city?.id || "",
       managerId: branch.managerId || "",
@@ -410,6 +504,12 @@ export default function AdminBranches() {
   const handleSubmit = async (submitData) => {
     const processedData = {
       ...submitData,
+      openingTime: submitData.openingTime
+        ? adjustTimeForBackend(submitData.openingTime)
+        : "",
+      closingTime: submitData.closingTime
+        ? adjustTimeForBackend(submitData.closingTime)
+        : "",
       phoneNumbers: submitData.phoneNumbers.map((phone) => ({
         phone: phone.phone,
         type: phone.type,
@@ -569,6 +669,7 @@ export default function AdminBranches() {
                   onEdit={handleEdit}
                   onToggleActive={handleToggleActive}
                   getPhoneTypeArabic={getPhoneTypeArabic}
+                  adjustTimeFromBackend={adjustTimeFromBackend}
                 />
               ))}
 
@@ -616,6 +717,8 @@ export default function AdminBranches() {
                   isEditing={!!editingId}
                   openDropdown={openDropdown}
                   setOpenDropdown={setOpenDropdown}
+                  convert24To12HourFormat={convert24To12HourFormat}
+                  adjustTimeFromBackend={adjustTimeFromBackend}
                 />
               )}
             </AnimatePresence>
