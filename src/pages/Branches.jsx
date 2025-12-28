@@ -404,7 +404,7 @@ const Branches = () => {
                 transition={{ delay: 0.4 }}
                 className="text-white/80 text-xs sm:text-sm md:text-base px-2"
               >
-                اكتشف فروع Chicken One القريبة منك وتعرّف على تفاصيل كل فرع
+                اكتشف فروع Triple S القريبة منك وتعرّف على تفاصيل كل فرع
                 وتقييمات العملاء
               </motion.p>
             </div>

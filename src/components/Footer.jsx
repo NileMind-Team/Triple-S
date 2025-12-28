@@ -87,11 +87,11 @@ const Footer = () => {
               <div className="flex items-center gap-3">
                 <img
                   src={logo}
-                  alt="Chicken One"
+                  alt="Triple S"
                   className="w-12 h-12 object-contain"
                 />
                 <span className="text-2xl font-bold bg-gradient-to-r from-[#E41E26] to-[#FDB913] bg-clip-text text-transparent">
-                  Chicken One
+                  Triple S
                 </span>
               </div>
             </Link>

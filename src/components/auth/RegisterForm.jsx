@@ -55,7 +55,7 @@ export default function RegisterForm({
           إنشاء حساب جديد
         </h2>
         <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">
-          انضم إلى Chicken One وابدأ رحلتك
+          انضم إلى Triple S وابدأ رحلتك
         </p>
       </div>
 

@@ -293,7 +293,7 @@ const Cashier = () => {
     const receiptContent = `
       <div style="font-family: Arial, sans-serif; max-width: 300px; margin: 0 auto; padding: 20px; border: 2px solid #E41E26; border-radius: 10px;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #E41E26; margin: 0;">Chicken One</h2>
+          <h2 style="color: #E41E26; margin: 0;">Triple S</h2>
           <p style="color: #666; margin: 5px 0;">كاشير المطعم</p>
           <p style="color: #666; margin: 0;">${new Date().toLocaleString(
             "ar-EG"
@@ -352,7 +352,7 @@ const Cashier = () => {
     printWindow.document.write(`
       <html>
         <head>
-          <title>فاتورة Chicken One</title>
+          <title>فاتورة Triple S</title>
           <style>
             body { margin: 0; padding: 20px; }
             @media print {

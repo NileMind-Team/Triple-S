@@ -55,7 +55,7 @@ export default function AuthLayout({
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight text-right">
                 مرحباً بك في{" "}
                 <span className="bg-gradient-to-r from-[#E41E26] to-[#FDB913] bg-clip-text text-transparent">
-                  Chicken One
+                  Triple S
                 </span>
               </h1>
               <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-right">
