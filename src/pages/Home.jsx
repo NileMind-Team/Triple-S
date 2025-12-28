@@ -34,8 +34,10 @@ const Home = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [favorites, setFavorites] = useState([]);
   const [cartItemsCount, setCartItemsCount] = useState(0);
+  // eslint-disable-next-line no-unused-vars
   const [isAdminOrRestaurantOrBranch, setIsAdminOrRestaurantOrBranch] =
     useState(false);
+  const [userRoles, setUserRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(false);
   const [showCategoriesManager, setShowCategoriesManager] = useState(false);
@@ -238,12 +240,13 @@ const Home = () => {
         });
 
         const userData = response.data;
-        const userRoles = userData.roles || [];
+        const roles = userData.roles || [];
+        setUserRoles(roles);
 
         const hasAdminOrRestaurantOrBranchRole =
-          userRoles.includes("Admin") ||
-          userRoles.includes("Restaurant") ||
-          userRoles.includes("Branch");
+          roles.includes("Admin") ||
+          roles.includes("Restaurant") ||
+          roles.includes("Branch");
 
         setIsAdminOrRestaurantOrBranch(hasAdminOrRestaurantOrBranchRole);
       } catch (error) {
@@ -341,6 +344,7 @@ const Home = () => {
         ingredients: [],
         description: product.description,
         isActive: product.isActive,
+        isAvailable: product.isAvailable !== false, // Assuming true if not specified
         calories: product.calories,
         preparationTimeStart: product.preparationTimeStart,
         preparationTimeEnd: product.preparationTimeEnd,
@@ -610,7 +614,7 @@ const Home = () => {
       return;
     }
 
-    if (!product.isActive) {
+    if (!isProductAvailableForCart(product)) {
       showNotification(
         "error",
         "المنتج غير متوفر",
@@ -752,6 +756,12 @@ const Home = () => {
     });
   };
 
+  // تحديث دالة handleToggleActive لتأخذ بعين الاعتبار كلا من isActive و isAvailable
+  const isProductActive = (product) => {
+    // المنتج يعتبر مفعل إذا كان isActive = true و isAvailable = true
+    return product.isActive && product.isAvailable;
+  };
+
   const handleToggleActive = async (productId, e) => {
     e.stopPropagation();
 
@@ -772,6 +782,7 @@ const Home = () => {
     }
 
     try {
+      // تحديث حالة المنتج
       await axiosInstance.put(
         `/api/MenuItems/ChangeMenuItemActiveStatus/${productId}`
       );
@@ -779,10 +790,11 @@ const Home = () => {
       fetchProducts();
 
       const product = products.find((p) => p.id === productId);
+      const isCurrentlyActive = isProductActive(product);
       showNotification(
         "success",
         "تم تحديث الحالة!",
-        `تم ${product.isActive ? "تعطيل" : "تفعيل"} المنتج`,
+        `تم ${isCurrentlyActive ? "تعطيل" : "تفعيل"} المنتج`,
         { timer: 1500 }
       );
     } catch (error) {
@@ -1139,7 +1151,16 @@ const Home = () => {
   };
 
   const isProductAvailableForCart = (product) => {
+    // المنتج متاح إذا كان:
+    // 1. isActive = true
+    // 2. isAvailable = true
+    // 3. الفئة مفعلة
+
     if (!product.isActive) {
+      return false;
+    }
+
+    if (!product.isAvailable) {
       return false;
     }
 
@@ -1257,6 +1278,15 @@ const Home = () => {
 
     return range;
   };
+
+  // التحقق من صلاحيات المستخدم
+  const isAdmin = userRoles.includes("Admin");
+  const isRestaurant = userRoles.includes("Restaurant");
+  const isBranch = userRoles.includes("Branch");
+
+  // Branch users can only see the toggle active button
+  const canShowAdminButtons = isAdmin || isRestaurant;
+  const canShowToggleButton = isAdmin || isRestaurant || isBranch;
 
   if (loading) {
     return (
@@ -1386,7 +1416,7 @@ const Home = () => {
                 <div
                   key={`${product.id}-${currentPage}`}
                   className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700 cursor-pointer w-full relative min-h-[180px] ${
-                    !product.isActive ? "opacity-70" : ""
+                    !isProductAvailableForCart(product) ? "opacity-70" : ""
                   } ${isProductCategoryDisabled(product) ? "opacity-80" : ""}`}
                   onClick={(e) => {
                     const isButtonClick =
@@ -1409,56 +1439,66 @@ const Home = () => {
                     </div>
                   )}
 
-                  {isAdminOrRestaurantOrBranch && (
+                  {/* Admin/Restaurant/Branch Buttons */}
+                  {(canShowAdminButtons || canShowToggleButton) && (
                     <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-                      <button
-                        onClick={(e) => {
-                          if (!canToggleProductActive(product)) {
-                            showNotification(
-                              "error",
-                              "لا يمكن التعديل",
-                              "لا يمكن تعديل حالة المنتج لأن الفئة معطلة",
-                              { timer: 2000 }
-                            );
-                            return;
-                          }
-                          handleToggleActive(product.id, e);
-                        }}
-                        disabled={!canToggleProductActive(product)}
-                        className={`p-2 rounded-lg shadow-lg text-xs no-product-details ${
-                          product.isActive
-                            ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                            : "bg-green-500 text-white hover:bg-green-600"
-                        } ${
-                          !canToggleProductActive(product)
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                      >
-                        {product.isActive ? (
-                          <FaTimesCircle size={12} />
-                        ) : (
-                          <FaCheckCircle size={12} />
-                        )}
-                      </button>
-                      <button
-                        onClick={(e) => handleEditProduct(product, e)}
-                        className="bg-blue-500 text-white p-2 rounded-lg shadow-lg hover:bg-blue-600 no-product-details"
-                      >
-                        <FaEdit size={12} />
-                      </button>
-                      <button
-                        onClick={(e) => handleManageOffers(product, e)}
-                        className="bg-purple-500 text-white p-2 rounded-lg shadow-lg hover:bg-purple-600 no-product-details"
-                      >
-                        <FaPercent size={12} />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteProduct(product.id, e)}
-                        className="bg-red-500 text-white p-2 rounded-lg shadow-lg hover:bg-red-600 no-product-details"
-                      >
-                        <FaTrash size={12} />
-                      </button>
+                      {/* Toggle Active Button - Available for Admin, Restaurant, and Branch */}
+                      {canShowToggleButton && (
+                        <button
+                          onClick={(e) => {
+                            if (!canToggleProductActive(product)) {
+                              showNotification(
+                                "error",
+                                "لا يمكن التعديل",
+                                "لا يمكن تعديل حالة المنتج لأن الفئة معطلة",
+                                { timer: 2000 }
+                              );
+                              return;
+                            }
+                            handleToggleActive(product.id, e);
+                          }}
+                          disabled={!canToggleProductActive(product)}
+                          className={`p-2 rounded-lg shadow-lg text-xs no-product-details ${
+                            isProductActive(product)
+                              ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                              : "bg-green-500 text-white hover:bg-green-600"
+                          } ${
+                            !canToggleProductActive(product)
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
+                          {isProductActive(product) ? (
+                            <FaTimesCircle size={12} />
+                          ) : (
+                            <FaCheckCircle size={12} />
+                          )}
+                        </button>
+                      )}
+
+                      {/* Admin/Restaurant Only Buttons */}
+                      {canShowAdminButtons && (
+                        <>
+                          <button
+                            onClick={(e) => handleEditProduct(product, e)}
+                            className="bg-blue-500 text-white p-2 rounded-lg shadow-lg hover:bg-blue-600 no-product-details"
+                          >
+                            <FaEdit size={12} />
+                          </button>
+                          <button
+                            onClick={(e) => handleManageOffers(product, e)}
+                            className="bg-purple-500 text-white p-2 rounded-lg shadow-lg hover:bg-purple-600 no-product-details"
+                          >
+                            <FaPercent size={12} />
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteProduct(product.id, e)}
+                            className="bg-red-500 text-white p-2 rounded-lg shadow-lg hover:bg-red-600 no-product-details"
+                          >
+                            <FaTrash size={12} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -1733,8 +1773,8 @@ const Home = () => {
           </div>
         </button>
 
-        {/* Admin Only Buttons */}
-        {isAdminOrRestaurantOrBranch && (
+        {/* Admin Only Buttons - Only for Admin and Restaurant, NOT for Branch */}
+        {canShowAdminButtons && (
           <>
             <button
               onClick={handleAddNewProduct}
@@ -1772,7 +1812,7 @@ const Home = () => {
       </div>
 
       {/* Categories Manager Modal */}
-      {showCategoriesManager && (
+      {showCategoriesManager && canShowAdminButtons && (
         <>
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"

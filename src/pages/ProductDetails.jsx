@@ -32,8 +32,10 @@ const ProductDetails = () => {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [cartItemsCount, setCartItemsCount] = useState(0);
+  // eslint-disable-next-line no-unused-vars
   const [isAdminOrRestaurantOrBranch, setIsAdminOrRestaurantOrBranch] =
     useState(false);
+  const [userRoles, setUserRoles] = useState([]);
   const [selectedAddons, setSelectedAddons] = useState({});
   const [isSticky, setIsSticky] = useState(false);
   const [addonsData, setAddonsData] = useState([]);
@@ -173,12 +175,13 @@ const ProductDetails = () => {
         });
 
         const userData = response.data;
-        const userRoles = userData.roles || [];
+        const roles = userData.roles || [];
+        setUserRoles(roles);
 
         const hasAdminOrRestaurantOrBranchRole =
-          userRoles.includes("Admin") ||
-          userRoles.includes("Restaurant") ||
-          userRoles.includes("Branch");
+          roles.includes("Admin") ||
+          roles.includes("Restaurant") ||
+          roles.includes("Branch");
 
         setIsAdminOrRestaurantOrBranch(hasAdminOrRestaurantOrBranchRole);
       } catch (error) {
@@ -271,6 +274,7 @@ const ProductDetails = () => {
         ingredients: [],
         description: productData.description,
         isActive: productData.isActive,
+        isAvailable: productData.isAvailable !== false, // Assuming true if not specified
         calories: productData.calories,
         preparationTimeStart: productData.preparationTimeStart,
         preparationTimeEnd: productData.preparationTimeEnd,
@@ -424,8 +428,17 @@ const ProductDetails = () => {
     return !categoryInfo.isActive;
   };
 
+  // تحديث الدالة لتأخذ بعين الاعتبار isActive و isAvailable
+  const isProductActive = () => {
+    if (!product) return false;
+    // المنتج يعتبر مفعل إذا كان isActive = true و isAvailable = true
+    return product.isActive && product.isAvailable;
+  };
+
   const isProductAvailableForCart = () => {
-    if (!product?.isActive) {
+    if (!product) return false;
+
+    if (!isProductActive()) {
       return false;
     }
 
@@ -630,10 +643,11 @@ const ProductDetails = () => {
 
       setProduct({ ...product, isActive: !product.isActive });
 
+      const currentActiveStatus = isProductActive();
       showMessage(
         "success",
         "تم تحديث الحالة!",
-        `تم ${product.isActive ? "تعطيل" : "تفعيل"} المنتج`,
+        `تم ${currentActiveStatus ? "تعطيل" : "تفعيل"} المنتج`,
         { timer: 1500 }
       );
     } catch (error) {
@@ -920,6 +934,15 @@ const ProductDetails = () => {
   const navigateToCart = () => {
     navigate("/cart");
   };
+
+  // التحقق من صلاحيات المستخدم
+  const isAdmin = userRoles.includes("Admin");
+  const isRestaurant = userRoles.includes("Restaurant");
+  const isBranch = userRoles.includes("Branch");
+
+  // Branch users can only see the toggle active button
+  const canShowAdminButtons = isAdmin || isRestaurant;
+  const canShowToggleButton = isAdmin || isRestaurant || isBranch;
 
   if (loading) {
     return (
@@ -1318,12 +1341,12 @@ const ProductDetails = () => {
 
               <div
                 className={`absolute top-3 md:top-4 right-3 md:right-4 px-3 py-1 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-semibold ${
-                  product.isActive
+                  isProductActive()
                     ? "bg-green-500 text-white"
                     : "bg-red-500 text-white"
                 }`}
               >
-                {product.isActive ? "نشط" : "غير نشط"}
+                {isProductActive() ? "نشط" : "غير نشط"}
               </div>
 
               {product.itemOffer && product.itemOffer.isEnabled && (
@@ -1341,57 +1364,67 @@ const ProductDetails = () => {
                 </motion.div>
               )}
 
-              {isAdminOrRestaurantOrBranch && (
+              {/* Admin/Restaurant/Branch Buttons */}
+              {(canShowAdminButtons || canShowToggleButton) && (
                 <div className="absolute top-12 md:top-16 left-3 md:left-4 flex flex-col gap-2 z-10">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleToggleActive}
-                    disabled={!canToggleProductActive()}
-                    className={`p-2 md:p-3 rounded-xl shadow-lg transition-colors flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm ${
-                      product.isActive
-                        ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                        : "bg-green-500 text-white hover:bg-green-600"
-                    } ${
-                      !canToggleProductActive()
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    {product.isActive ? (
-                      <FaTimesCircle className="text-sm md:text-base" />
-                    ) : (
-                      <FaCheckCircle className="text-sm md:text-base" />
-                    )}
-                    <span>{product.isActive ? "تعطيل" : "تفعيل"}</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleEditProduct}
-                    className="bg-blue-500 text-white p-2 md:p-3 rounded-xl shadow-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm"
-                  >
-                    <FaEdit className="text-sm md:text-base" />
-                    <span>تعديل</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleManageOffers}
-                    className="bg-purple-500 text-white p-2 md:p-3 rounded-xl shadow-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm"
-                  >
-                    <FaPercent className="text-sm md:text-base" />
-                    <span>خصومات</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleDeleteProduct}
-                    className="bg-red-500 text-white p-2 md:p-3 rounded-xl shadow-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm"
-                  >
-                    <FaTrash className="text-sm md:text-base" />
-                    <span>حذف</span>
-                  </motion.button>
+                  {/* Toggle Active Button - Available for Admin, Restaurant, and Branch */}
+                  {canShowToggleButton && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleToggleActive}
+                      disabled={!canToggleProductActive()}
+                      className={`p-2 md:p-3 rounded-xl shadow-lg transition-colors flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm ${
+                        isProductActive()
+                          ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                          : "bg-green-500 text-white hover:bg-green-600"
+                      } ${
+                        !canToggleProductActive()
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                    >
+                      {isProductActive() ? (
+                        <FaTimesCircle className="text-sm md:text-base" />
+                      ) : (
+                        <FaCheckCircle className="text-sm md:text-base" />
+                      )}
+                      <span>{isProductActive() ? "تعطيل" : "تفعيل"}</span>
+                    </motion.button>
+                  )}
+
+                  {/* Admin/Restaurant Only Buttons */}
+                  {canShowAdminButtons && (
+                    <>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleEditProduct}
+                        className="bg-blue-500 text-white p-2 md:p-3 rounded-xl shadow-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm"
+                      >
+                        <FaEdit className="text-sm md:text-base" />
+                        <span>تعديل</span>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleManageOffers}
+                        className="bg-purple-500 text-white p-2 md:p-3 rounded-xl shadow-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm"
+                      >
+                        <FaPercent className="text-sm md:text-base" />
+                        <span>خصومات</span>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleDeleteProduct}
+                        className="bg-red-500 text-white p-2 md:p-3 rounded-xl shadow-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm"
+                      >
+                        <FaTrash className="text-sm md:text-base" />
+                        <span>حذف</span>
+                      </motion.button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1478,7 +1511,7 @@ const ProductDetails = () => {
                   </div>
 
                   <div className="space-y-4 md:space-y-6">
-                    {isAdminOrRestaurantOrBranch && (
+                    {canShowAdminButtons && (
                       <div className="flex justify-end">
                         <motion.button
                           whileHover={{ scale: 1.05 }}
@@ -1517,7 +1550,7 @@ const ProductDetails = () => {
                               )}
                             </div>
 
-                            {isAdminOrRestaurantOrBranch && (
+                            {canShowAdminButtons && (
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
@@ -1578,7 +1611,7 @@ const ProductDetails = () => {
                                     )}
                                   </motion.button>
 
-                                  {isAdminOrRestaurantOrBranch && (
+                                  {canShowAdminButtons && (
                                     <div className="absolute -top-2 -right-2 flex gap-1 z-10">
                                       <motion.button
                                         whileHover={{ scale: 1.1 }}

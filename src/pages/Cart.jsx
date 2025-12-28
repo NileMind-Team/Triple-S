@@ -23,6 +23,8 @@ import {
   FaPlusCircle,
   FaUser,
   FaExchangeAlt,
+  FaPhone,
+  FaMapPin,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 import axiosInstance from "../api/axiosInstance";
@@ -60,6 +62,13 @@ export default function Cart() {
   // eslint-disable-next-line no-unused-vars
   const [loadingDeliveryFees, setLoadingDeliveryFees] = useState(false);
   const [itemNotes, setItemNotes] = useState("");
+  const [showMissingInfoModal, setShowMissingInfoModal] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [showPhoneInputModal, setShowPhoneInputModal] = useState(false); // New state for phone input modal
+  const [newPhoneNumber, setNewPhoneNumber] = useState(""); // New state for phone input
 
   const notesModalRef = React.useRef(null);
   const productDetailsModalRef = React.useRef(null);
@@ -72,6 +81,7 @@ export default function Cart() {
     fetchBranches();
     fetchUserAddresses();
     fetchDeliveryFees();
+    fetchUserProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -122,6 +132,78 @@ export default function Cart() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
+
+  // New function: Fetch user profile
+  const fetchUserProfile = async () => {
+    try {
+      setLoadingProfile(true);
+      const response = await axiosInstance.get("/api/Account/Profile");
+      setUserProfile(response.data);
+      setPhoneNumber(response.data.phoneNumber || "");
+      setNewPhoneNumber(response.data.phoneNumber || ""); // Initialize new phone number
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  // New function: Update phone number
+  const updatePhoneNumber = async () => {
+    try {
+      if (!newPhoneNumber.trim()) {
+        toast.error("الرجاء إدخال رقم هاتف صحيح", {
+          position: "top-right",
+          autoClose: 2000,
+          rtl: true,
+        });
+        return;
+      }
+
+      setLoadingProfile(true);
+      await axiosInstance.put("/api/Account/UpdateProfile", {
+        firstName: userProfile?.firstName || "",
+        lastName: userProfile?.lastName || "",
+        phoneNumber: newPhoneNumber,
+      });
+
+      toast.success("تم تحديث رقم الهاتف بنجاح", {
+        position: "top-right",
+        autoClose: 2000,
+        rtl: true,
+      });
+
+      setShowPhoneInputModal(false);
+      setShowMissingInfoModal(false);
+      fetchUserProfile(); // Reload user data
+
+      // Try checkout again after updating phone
+      setTimeout(() => {
+        handleCheckout();
+      }, 500);
+    } catch (error) {
+      console.error("Error updating phone number:", error);
+      toast.error("فشل في تحديث رقم الهاتف", {
+        position: "top-right",
+        autoClose: 2000,
+        rtl: true,
+      });
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  // Function to open phone input modal
+  const openPhoneInputModal = () => {
+    setShowMissingInfoModal(false); // Close missing info modal
+    setShowPhoneInputModal(true); // Open phone input modal
+  };
+
+  // Function to handle adding address
+  const handleAddAddress = () => {
+    setShowMissingInfoModal(false); // Close missing info modal
+    navigate("/addresses", { state: { fromCart: true, requireDefault: true } });
+  };
 
   const fetchDeliveryFees = async () => {
     try {
@@ -1290,6 +1372,13 @@ export default function Cart() {
                 deliveryType === "delivery" ? "التوصيل" : "الاستلام"
               } غير متاحة لهذا الفرع حالياً. الرجاء اختيار فرع آخر أو طريقة استلام مختلفة.`
             );
+          } else if (errorItem.code === "User.MissingInfo") {
+            errorMessages.push(
+              "يجب إضافة رقم هاتف أو تعيين عنوان افتراضي قبل إتمام الطلب."
+            );
+
+            setShowMissingInfoModal(true);
+            fetchUserProfile();
           }
         });
 
@@ -1350,6 +1439,185 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-[#fff8e7] to-[#ffe5b4] dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 px-3 sm:px-4 py-4 sm:py-8 transition-colors duration-300">
+      {/* Phone Input Modal */}
+      {showPhoneInputModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6"
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <FaPhone className="text-[#E41E26] text-xl" />
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+                  تحديث رقم الهاتف
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPhoneInputModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              >
+                <FaTimes className="text-lg" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-200 dark:border-blue-600 mb-4">
+                <p className="text-blue-700 dark:text-blue-300 text-sm">
+                  الرجاء إدخال رقم هاتفك لتتمكن من إكمال عملية الدفع.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  رقم الهاتف
+                </label>
+                <input
+                  type="tel"
+                  value={newPhoneNumber}
+                  onChange={(e) => setNewPhoneNumber(e.target.value)}
+                  placeholder="أدخل رقم الهاتف"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[#E41E26] focus:border-transparent"
+                  dir="ltr"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  سيتم استخدام هذا الرقم للتواصل بشأن الطلب
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPhoneInputModal(false)}
+                className="flex-1 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={updatePhoneNumber}
+                disabled={loadingProfile || !newPhoneNumber.trim()}
+                className="flex-1 py-3 bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loadingProfile ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                    جاري الحفظ...
+                  </>
+                ) : (
+                  <>
+                    <FaSave />
+                    حفظ وتأكيد الدفع
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Missing Info Modal */}
+      {showMissingInfoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6"
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <FaInfoCircle className="text-[#E41E26] text-xl" />
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+                  معلومات ناقصة
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowMissingInfoModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              >
+                <FaTimes className="text-lg" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-xl border border-yellow-200 dark:border-yellow-600 mb-4">
+                <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+                  يرجى إضافة رقم هاتف أو عنوان افتراضي للمتابعة في عملية الدفع.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    اختر أحد الخيارات التالية:
+                  </p>
+                </div>
+
+                {/* Add Phone Number Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={openPhoneInputModal}
+                  className="w-full p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl border-2 border-blue-200 dark:border-blue-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-300 flex items-center justify-center gap-3"
+                >
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
+                    <FaPhone className="text-blue-600 dark:text-blue-300 text-xl" />
+                  </div>
+                  <div className="text-right">
+                    <h4 className="font-bold text-blue-800 dark:text-blue-300 text-base">
+                      إضافة رقم هاتف
+                    </h4>
+                    <p className="text-blue-600 dark:text-blue-400 text-sm">
+                      أضف رقم هاتف للتواصل معك بشأن الطلب
+                    </p>
+                  </div>
+                </motion.button>
+
+                {/* Add Address Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleAddAddress}
+                  className="w-full p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl border-2 border-green-200 dark:border-green-600 hover:border-green-400 dark:hover:border-green-500 transition-all duration-300 flex items-center justify-center gap-3"
+                >
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center">
+                    <FaMapPin className="text-green-600 dark:text-green-300 text-xl" />
+                  </div>
+                  <div className="text-right">
+                    <h4 className="font-bold text-green-800 dark:text-green-300 text-base">
+                      إضافة عنوان
+                    </h4>
+                    <p className="text-green-600 dark:text-green-400 text-sm">
+                      أضف عنوان افتراضي لتوصيل الطلب
+                    </p>
+                  </div>
+                </motion.button>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowMissingInfoModal(false)}
+                className="flex-1 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                إلغاء الطلب
+              </button>
+              <button
+                onClick={() => {
+                  setShowMissingInfoModal(false);
+                  navigate("/");
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-[#E41E26] to-[#FDB913] text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                مواصلة التسوق
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {showNotesModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <motion.div
