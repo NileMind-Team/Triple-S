@@ -139,15 +139,17 @@ const fetchAllOrdersForPrint = async (startDate, endDate) => {
       };
     }
 
-    const startDateStr = format(startDate, "yyyy-MM-dd");
-    const endDateStr = format(endDate, "yyyy-MM-dd");
+    const startDateWithTime = startOfDay(startDate);
+    const endDateWithTime = endOfDay(endDate);
 
-    console.log(`Fetching print orders from ${startDateStr} to ${endDateStr}`);
+    console.log(
+      `Fetching print orders from ${startDateWithTime} to ${endDateWithTime}`
+    );
 
     const response = await axiosInstance.get("/api/Orders/GetAll", {
       params: {
-        startRange: startDateStr,
-        endRange: endDateStr,
+        startRange: startDateWithTime.toISOString(),
+        endRange: endDateWithTime.toISOString(),
       },
     });
 
